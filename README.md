@@ -11,5 +11,6 @@ using survival tree ensembles” described in
 Depending on the landarmk time and how the longitudinal predictors are
 measured, we provide the following examples in this repository.
 
-  - Example when the landmark time is the intermediate event and the
-    longitudinal predictors are measured at the intermediate event.
+  - [Landmark time is the intermediate event and longitudinal predictors
+    are measured at the intermediate
+    event](https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/sim3C.html).
