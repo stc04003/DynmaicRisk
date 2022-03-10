@@ -2,7 +2,97 @@
 output: github_document
 ---
 
+```{r default, include = FALSE, collapse = TRUE}
+library(knitr)
+opts_chunk$set(prompt = TRUE, comment = "")
+```
+
 ## Dynamic risk prediction triggered by intermediate events using survival tree ensembles
 
 This repository contains example codes used to run the simulation in the manuscript 
 "Dynamic risk prediction triggered by intermediate events using survival tree ensembles" described in [https://arxiv.org/abs/2011.07175](https://arxiv.org/abs/2011.07175).
+
+
+## Example
+
+In the following example, we used the `ranger()` function implemented in `R` package `ranger` (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.
+
+We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. 
+We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is
+the event of interest. 
+Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, 
+the target landmark probability is ![equation](https://latex.codecogs.com/svg.image?P(T%5Cge%20U%20&plus;%20t%7CT%5Cge%20U,%20U,%20W(U),%20Z),%20)
+where ![equation](https://latex.codecogs.com/svg.image?T) is a continuous failure time, 
+![equation](https://latex.codecogs.com/svg.image?U) is the time to the intermediate event (time from the healthy state to the disease state), 
+![equation](https://latex.codecogs.com/svg.image?W(U)) is a q-dimensional vector of time-dependent predictors measured at ![equation](https://latex.codecogs.com/svg.image?U), and ![equation](https://latex.codecogs.com/svg.image?Z) is a p-dimensional vector of baseline predictors.
+
+The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.
+```{R}
+source("codes/data.R")
+set.seed(1); dat <- simDat(n = 400, cen = .2)
+```
+
+The `simDat()` function from `codes/data.R` takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
+
+```{R}
+names(dat)
+head(dat[, c(1:5, 14:15)]) 
+```
+
+The `simDat()` returns a `data.frame` with the following variables. 
+
+  - `Time` observed survival time after ![equation](https://latex.codecogs.com/svg.image?U), e.g., ![equation](https://latex.codecogs.com/svg.image?T&space;-&space;U).
+  - `status` censoring indicator; 1 if `Time` is the event of interest (death) and 0 if `Time` is censored.
+  - `D` time from the healthy state to the diseased state. This is also the landmark time in this scenario. 
+  - `Z.1`...`Z.10` are 10 baseline predictors.
+  - `W.1`...`W.10` are 10 time-dependent predictors measured at ![equation](https://latex.codecogs.com/svg.image?U).
+
+The following fits a random survival forest with `ranger()`.
+```{R}
+library(survival)
+library(ranger)
+fit <- ranger(Surv(Time, status) ~ ., data = dat)
+```
+
+The proposed ensemble procedure is implemented in `getSurv()` from `codes/ranger-addon.R`.
+The following codes generate a testing data and computes the predicted probabilities with the proposed ensemble procedure.
+
+```{R}
+source("codes/ranger-addon.R")
+dat0 <- simDat(500, 0)
+predS <- getSurv(fit, dat, dat0)
+head(predS, 3)
+```
+
+The `getSurv()` function returns a list, where the ith member of the list gives the landmark probability for 
+the ith subject from the testing data. 
+Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of
+the true probability is challenging. 
+The `getTrueSurv()` function from `codes/data.R` compute the true landmark probability using 
+Monte Carlo method for this scenario.
+
+```{R}
+trueS <- getTrueSurv(dat0)
+```
+
+The `getTrueSurv()` function returns a list, where the ith member of the list gives the true landmark probability for 
+the ith subject from the testing data. 
+The following codes calculate the integrated mean absolute error and the integrated mean squared error
+to evaluate the model performance. 
+
+```{R}
+t0 <- seq(0, quantile(dat0$Time, .9), .01)
+## Intergrated absolute error
+mean(sapply(1:nrow(dat0), function(i) abs(predS[[i]](t0) - trueS[[i]](t0))))
+## Intergrated MSE
+mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))
+```
+
+The considered example is the Scenario (III-A) in our manuscript. 
+All codes are available in the `code` folder.
+
+
+## Reference 
+
+- Wright, M. N. and Ziegler, A. (2017). `ranger`: A fast implementation of random forests for high dimensional
+data in `C++` and `R`. Journal of Statistical Software 77 1–17.
