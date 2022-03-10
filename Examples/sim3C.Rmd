@@ -1,0 +1,159 @@
+---
+title: "Landmark time at the intermediate event and the longitudinal predictors measured at the intermediate event."
+data: March 9, 2022
+output: html_document
+---
+
+```{r default, include = FALSE, collapse = TRUE}
+library(knitr)
+opts_chunk$set(prompt = TRUE, comment = "")
+```
+
+In the following example, we used the `ranger()` function implemented in `R` package `ranger` (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.
+
+## Generate simulated data
+
+We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. 
+We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is
+the event of interest. 
+Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, 
+the target landmark probability is $$P(T\ge U + t|T\ge U, U, W(U), Z),$$
+where $T$ is a continuous failure time, $U$ is the time to the intermediate event (time from the healthy state to the disease state), $W(U)$ is a $q$-dimensional vector of time-dependent predictors measured at $U$, and $Z$ is a $p$-dimensional vector of baseline predictors.
+
+The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.
+```{R}
+Wt <- function(t, a) a * pweibull(.2 * t, 2)
+simDat <- function(n, cen) {
+  p <- 10
+  Z <- matrix(rnorm(n * p), n)
+  a <- matrix(runif(n * p, -1, 1), n)
+  e <- rnorm(n)
+  g <- rgamma(n, 2 , 2)
+  t1 <- runif(n, 0, 5)
+  t2 <- exp(-5 + rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3] * Z[,1:3]) +
+            rowSums(Wt(t1, a[,1:3]) * Z[,1:3]) + log(1 + t1) + g + e)
+  pb <- 1 / (1 + 1 / exp(rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3]) + g))
+  if (cen == 0) cc <- rep(Inf, n)
+  if (cen == .2) cc <- rexp(n, .04)
+  if (cen == .4) cc <- rexp(n, .12)  
+  dat0 <- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z, W = Wt(t1, a))
+  diseased <- rbinom(n, 1, pb) > 0
+  dat <- dat0[diseased,]
+  cc <- cc[diseased]
+  dat$Time <- pmin(dat$Time, cc)
+  dat$status <- 1 * (dat$Time < cc)
+  dat <- subset(dat, Time >= D)
+  dat$Time <- dat$Time - dat$D
+  dat
+}
+set.seed(1); dat <- simDat(n = 400, cen = .2)
+```
+
+The `simDat()` function from `codes/data.R` takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
+
+```{R}
+names(dat)
+head(dat[, c(1:5, 14:15)]) 
+```
+
+The `simDat()` returns a `data.frame` with the following variables. 
+
+  - `Time` observed survival time after $U$, e.g., $T-U$.
+  - `status` censoring indicator; 1 if `Time` is the event of interest (death) and 0 if `Time` is censored.
+  - `D` time from the healthy state to the diseased state. This is also the landmark time in this scenario. 
+  - `Z.1`...`Z.10` are 10 baseline predictors.
+  - `W.1`...`W.10` are 10 time-dependent predictors measured at ![equation](https://latex.codecogs.com/svg.image?U).
+
+## Construct trees with `ranger`
+
+The following fits a random survival forest with `ranger()`.
+```{R}
+library(survival)
+library(ranger)
+(fit <- ranger(Surv(Time, status) ~ ., data = dat))
+```
+
+## Calculate predicted survival probabilities with ensemble
+
+The proposed ensemble procedure is implemented in `getSurv()` from `codes/ranger-addon.R`.
+The following codes generate a testing data and computes the predicted probabilities with the proposed ensemble procedure.
+
+```{R}
+getSurv <- function(fit, trainDat, testDat) {
+  resChar <- strsplit(as.character(fit$call)[2], "\\s~")[[1]][1] 
+  resChar <- gsub("Surv|[(]|[)]", "", resChar)
+  resChar <- strsplit(resChar, ", ")[[1]]
+  Time <- as.numeric(unlist(trainDat[resChar[1]]))
+  Status <- as.numeric(unlist(trainDat[resChar[2]]))
+  n <- nrow(trainDat)
+  wbij <- sapply(1:fit$forest$num.trees, function(i) {
+    out <- tabulate(1 + fit$forest$SampleIDs[[i]], nbins = n)
+    return(out) })
+  trainDatNodes <- predict(fit, trainDat, type = "terminalNodes")$predictions
+  testDatNodes <- predict(fit, testDat, type = "terminalNodes")$predictions
+  predSV <- sapply(1:nrow(testDat), function(i) {
+    wij <- rowSums(wbij * (testDatNodes[rep(i, nrow(trainDatNodes)),] == trainDatNodes))
+    w1 <- sapply(Time, function(x) sum(wij * (Time >= x)))
+    exp(-sapply(Time, function(x)
+      sum(Status * wij * (Time <= x) / w1, na.rm = TRUE)))
+  })
+  apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
+}
+
+dat0 <- simDat(500, 0)
+predS <- getSurv(fit, dat, dat0)
+head(predS, 3)
+```
+
+The `getSurv()` function returns a list, where the $i$th member of the list gives the landmark probability for 
+the $i$th subject from the testing data. 
+Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of
+the true probability is challenging. 
+
+## Evaluating model performance
+
+The `getTrueSurv()` function from `codes/data.R` compute the true landmark probability using 
+Monte Carlo method for this scenario.
+
+```{R}
+getTrueSurv <- function(dat) {
+  trSiFun <- list()
+  n2 <- 1e5
+  for (i in 1:nrow(dat)) {
+    W0 <- as.numeric(dat[i, grep("W", names(dat))])[1:3]
+    Z0 <- as.numeric(dat[i, grep("Z", names(dat))])[1:3]    
+    t1 <- as.numeric(dat$D[i])
+    g <- rgamma(n2, 2, 2)
+    pb2 <- 1 / (1 + 1 / exp(sum(W0) + sum(Z0) + g))
+    pi2 <- rbinom(n2, 1, pb2)
+    t22 <- exp(-5 + sum(W0) + sum(Z0^2) + sum(W0 * Z0) + log(1 + t1) + g + rnorm(n2))
+    t22 <- sort(t22[pi2 > 0])
+    trSiFun[[i]] <- stepfun(t22, c(1, 1 - ecdf(t22)(t22)))
+  }
+  trSiFun
+}
+trueS <- getTrueSurv(dat0)
+```
+
+The `getTrueSurv()` function returns a list, where the $i$th member of the list gives the true landmark probability for 
+the $i$th subject from the testing data. 
+The following codes calculate the integrated mean absolute error and the integrated mean squared error
+to evaluate the model performance. 
+
+```{R}
+t0 <- seq(0, quantile(dat0$Time, .9), .01)
+## Intergrated absolute error
+mean(sapply(1:nrow(dat0), function(i) abs(predS[[i]](t0) - trueS[[i]](t0))))
+## Intergrated MSE
+mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))
+```
+
+The considered example is the Scenario (III-A) in our manuscript. 
+The functions `simDat()`, `getTrueSurv()`, and `getSurv()` are attached here to make this a stand-alone document. 
+Those functions are available in our `code` folder.
+
+
+## Reference 
+
+- Wright, M. N. and Ziegler, A. (2017). `ranger`: A fast implementation of random forests for high dimensional
+data in `C++` and `R`. Journal of Statistical Software 77 1–17.

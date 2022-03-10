@@ -1,4 +1,4 @@
-#; Function used to generate W(t)
+#' Function used to generate W(t)
 Wt <- function(t, a) a * pweibull(.2 * t, 2)
 
 #' Function to generate simulated data
