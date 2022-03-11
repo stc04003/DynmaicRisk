@@ -11,7 +11,9 @@ using survival tree ensembles” described in
 Depending on the landarmk time and how the longitudinal predictors are
 measured, we provide the following examples in this repository.
 
-  - [Fixed landmark time withlongitudinal predictors measured at the
+  - [Random landmark time with longitudinal predictors measured at
+    \(t_1, t_2, \ldots\)](https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/sim3A.html).
+  - [Fixed landmark time with longitudinal predictors measured at the
     intermediate
     event](https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/sim3B.html).
   - [Random landmark time with longitudinal predictors measured at the

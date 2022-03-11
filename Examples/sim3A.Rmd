@@ -1,5 +1,5 @@
 ---
-title: "Fixed landmark time withlongitudinal predictors measured at the intermediate event."
+title: "Random landmark time with longitudinal predictors measured at times 1, 2, 3, 4, and 5."
 data: March 9, 2022
 output: html_document
 ---
@@ -9,8 +9,6 @@ library(knitr)
 opts_chunk$set(prompt = TRUE, comment = "")
 ```
 
-
-
 In the following example, we used the `ranger()` function implemented in `R` package `ranger` (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.
 
 ## Generate simulated data
@@ -18,21 +16,15 @@ In the following example, we used the `ranger()` function implemented in `R` pac
 We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. 
 We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is
 the event of interest. 
-Suppose we are interested in predicting the survival probability among those who are at risk at $T_L = 2$, 
-the target landmark probability is 
-\begin{aligned*}
-\begin{cases}
-    P( T-a\ge t\mid T\ge a, U ,\bW(U) , \bZ ), & U\le a,\\
-   P( T-a\ge t\mid T\ge a, U > a,\bZ  ), & U>a.\\ 
-\end{cases}
-\end{aligned*}
-where $T$ is a continuous failure time, $U$ is the time to the intermediate event (time from the healthy state to the disease state), $W(U)$ is a $q$-dimensional vector of time-dependent predictors measured at $U$, 
-$Z$ is a $p$-dimensional vector of baseline predictors, and $a = 2$ is the fixed landmark time. 
+Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, 
+the target landmark probability is $$P(T\ge U + t|T\ge U, U, W(1, U), W(2, U), W(3, U), W(4, U), W(5, U), Z),$$
+where $T$ is a continuous failure time, $U$ is the time to the intermediate event (time from the healthy state to the disease state), $W(U)$ is a $q$-dimensional vector of time-dependent predictors measured at times 1, 2, 3, 4, and 5, 
+and $Z$ is a $p$-dimensional vector of baseline predictors.
 
 The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.
 ```{R}
 Wt <- function(t, a) a * pweibull(.2 * t, 2)
-simDat <- function(n, cen) {
+simDat <- function(n, cen, test = FALSE) {
   p <- 10
   Z <- matrix(rnorm(n * p), n)
   a <- matrix(runif(n * p, -1, 1), n)
@@ -44,23 +36,33 @@ simDat <- function(n, cen) {
   pb <- 1 / (1 + 1 / exp(rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3]) + g))
   if (cen == 0) cc <- rep(Inf, n)
   if (cen == .2) cc <- rexp(n, .04)
-  if (cen == .4) cc <- rexp(n, .12)  
-  dat0 <- data.frame(Time = t1 + t2 * (rbinom(n, 1, pb) > 0),
-                     status = 1, D = t1, Z = Z, W = Wt(t1, a))
-  dat0$Time <- pmin(dat0$Time, cc, 3)
-  dat0$status <- 1 * (dat0$Time < pmin(cc, 3))
-  dat0$D <- pmin(dat0$D, 2)
-  dat <- subset(dat0, Time > 2)
-  dat$Time <- dat$Time - 2
-  dat[dat$D == 2,grep("W", names(dat0))] <- NA
+  if (cen == .4) cc <- rexp(n, .12)
+  if (test)
+    dat0 <- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z, a = a, 
+                       W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
+  else
+    dat0 <- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z,
+                       W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
+  keep <- rbinom(n, 1, pb) > 0
+  dat0$Time <- pmin(dat0$Time, cc)
+  dat0$status <- 1 * (dat0$Time < cc)
+  dat <- subset(dat0[keep,], Time >= D)
+  for (i in 1:nrow(dat)) {
+    if (floor(dat$Time[i]) < 5) dat[i, grep("W5", names(dat0))] <- NA
+    if (floor(dat$Time[i]) < 4) dat[i, grep("W4", names(dat0))] <- NA
+    if (floor(dat$Time[i]) < 3) dat[i, grep("W3", names(dat0))] <- NA
+    if (floor(dat$Time[i]) < 2) dat[i, grep("W2", names(dat0))] <- NA
+    if (floor(dat$Time[i]) < 1) dat[i, grep("W1", names(dat0))] <- NA
+  }
+  dat$Time <- dat$Time - dat$D
   rownames(dat) <- NULL
   return(dat)
 }
-
 set.seed(1); dat <- simDat(n = 400, cen = .2)
 ```
 
-The `simDat()` function from `codes/sim3B.R` takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
+The `simDat()` function from `codes/sim3A.R` takes on two required arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively. 
+The third (optional) argument, `test`, indicates whether a testing set is being generated.
 
 ```{R}
 names(dat)
@@ -73,9 +75,11 @@ The `simDat()` returns a `data.frame` with the following variables.
   - `status` censoring indicator; 1 if `Time` is the event of interest (death) and 0 if `Time` is censored.
   - `D` time from the healthy state to the diseased state. This is also the landmark time in this scenario. 
   - `Z.1`...`Z.10` are 10 baseline predictors.
-  - `W.1`...`W.10` are 10 time-dependent predictors measured at $U$.
+  - `W1.1`, `W1.2`...`W5.9`, `W5.10` are the time-dependent predictors expressed as `Wk.j`, 
+  which indicates the $j$th time-dependent predictors is observed at time `k`. 
 
-The time-dependent predictors are missing for those subjects who have yet to advance to the diseased state.
+The time-dependent predictors are missing for those subjects who experienced the event of interest (death) or 
+was censored by $t_1 = 1$.
 Following the purposed data preprocessing procedure, 
 the following codes replace `NA` with $(-M, M)$ for some large value $M$.
 ```{R}
@@ -84,6 +88,8 @@ tmp[is.na(tmp)] <- 1e5
 dat[is.na(dat)] <- -1e5
 dat <- data.frame(dat, tmp)
 ```
+
+
 ## Construct trees with `ranger`
 
 The following fits a random survival forest with `ranger()`.
@@ -93,22 +99,21 @@ library(ranger)
 (fit <- ranger(Surv(Time, status) ~ ., data = dat))
 ```
 
-## Generate testing data
+## Calculate predicted survival probabilities with ensemble
 
+The proposed ensemble procedure is implemented in `getSurv()` from `codes/ranger-addon.R`.
 The following codes generate a testing data.
 We replace the `NA` with $(-M, M)$ in the testing data to make it comparable with the training data. 
 ```{R}
-dat0 <- simDat(500, 0)
+dat0 <- simDat(500, 0, T)
 tmp <- dat0[,colSums(is.na(dat0)) > 0]
 tmp[is.na(tmp)] <- 1e5
 dat0[is.na(dat0)] <- -1e5
 dat0 <- data.frame(dat0, tmp)
 ```
 
-## Calculate predicted survival probabilities with ensemble
+The following codes generate a testing data and compute the predicted probabilities with the proposed ensemble procedure.
 
-The proposed ensemble procedure is implemented in `getSurv()` from `codes/ranger-addon.R`.
-The following codes compute the predicted probabilities with the proposed ensemble procedure.
 ```{R}
 getSurv <- function(fit, trainDat, testDat) {
   resChar <- strsplit(as.character(fit$call)[2], "\\s~")[[1]][1] 
@@ -130,6 +135,7 @@ getSurv <- function(fit, trainDat, testDat) {
   })
   apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 }
+
 predS <- getSurv(fit, dat, dat0)
 head(predS, 3)
 ```
@@ -141,7 +147,7 @@ the true probability is challenging.
 
 ## Evaluating model performance
 
-The `getTrueSurv()` function from `codes/3B.R` compute the true landmark probability using 
+The `getTrueSurv()` function from `codes/3A.R` compute the true landmark probability using 
 Monte Carlo method for this scenario.
 
 ```{R}
@@ -149,22 +155,16 @@ getTrueSurv <- function(dat) {
   trSurv <- list()
   for (i in 1:nrow(dat)) {
     n2 <- 1e5
-    W0 <- as.numeric(dat[i, grep("W", names(dat))])[1:3]
+    a0 <- as.numeric(dat[i, grep("a", names(dat))])[1:3]
+    W0 <- Wt(dat$D[i], a0)
     Z0 <- as.numeric(dat[i, grep("Z", names(dat))])[1:3]    
+    t1 <- as.numeric(dat$D[i])
     g <- rgamma(n2, 2, 2)
     pb2 <- 1 / (1 + 1 / exp(sum(W0) + sum(Z0) + g))
     pi2 <- rbinom(n2, 1, pb2)
-    t1 <- as.numeric(dat$D[i])
-    if (t1 == 2) {
-      t12 <- runif(n2, 0, 5)
-      t22 <- ifelse(pi2 == 0, t12, 
-                    t12 + exp(-5 + sum(W0) + sum(Z0^2) + sum(W0 * Z0) + log(1 + t12) + g + rnorm(n2)))
-      t22 <- sort(t22[t12 > 2] - 2)
-    } else {
-      t22 <- t1 + exp(-5 + sum(W0) + sum(Z0^2) + sum(W0 * Z0) + log(1 + t1) + g + rnorm(n2))
-      t22 <- sort(t22[pi2 > 0] - 2)      
-    }
-    trSurv[[i]] <- stepfun(t22, c(1, 1 - ecdf(t22)(t22)))      
+    t22 <- exp(-5 + sum(W0) + sum(Z0^2) + sum(W0 * Z0) + log(1 + t1) + g + rnorm(n2))
+    t22 <- sort(t22[pi2 > 0])
+    trSurv[[i]] <- stepfun(t22, c(1, 1 - ecdf(t22)(t22)))
   }
   trSurv
 }
@@ -184,8 +184,8 @@ mean(sapply(1:nrow(dat0), function(i) abs(predS[[i]](t0) - trueS[[i]](t0))))
 mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))
 ```
 
-The considered example is the Scenario (III-B) in our manuscript. 
-The functions `simDat()` and `getTrueSurv()` are also available in `../codes/sim3B.R`.
+The considered example is the Scenario (III-C) in our manuscript. 
+The functions `simDat()` and `getTrueSurv()` are also available in `../codes/sim3A.R`.
 The function `getSurv()` is also available in `../codes/ranger-addon.R`.
 
 

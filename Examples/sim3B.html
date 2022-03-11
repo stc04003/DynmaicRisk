@@ -398,7 +398,7 @@ We consider a scenario where the event times are generated from an irreversible 
 + }
 &gt; 
 &gt; set.seed(1); dat &lt;- simDat(n = 400, cen = .2)</code></pre>
-<p>The <code>simDat()</code> function from <code>codes/data.R</code> takes on two arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively.</p>
+<p>The <code>simDat()</code> function from <code>codes/sim3B.R</code> takes on two arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively.</p>
 <pre class="r"><code>&gt; names(dat)</code></pre>
 <pre><code> [1] &quot;Time&quot;   &quot;status&quot; &quot;D&quot;      &quot;Z.1&quot;    &quot;Z.2&quot;    &quot;Z.3&quot;    &quot;Z.4&quot;    &quot;Z.5&quot;   
  [9] &quot;Z.6&quot;    &quot;Z.7&quot;    &quot;Z.8&quot;    &quot;Z.9&quot;    &quot;Z.10&quot;   &quot;W.1&quot;    &quot;W.2&quot;    &quot;W.3&quot;   
@@ -447,15 +447,18 @@ Splitrule:                        logrank
 Number of unique death times:     64 
 OOB prediction error (1-C):       0.469548 </code></pre>
 </div>
-<div id="calculate-predicted-survival-probabilities-with-ensemble" class="section level2">
-<h2>Calculate predicted survival probabilities with ensemble</h2>
-<p>The proposed ensemble procedure is implemented in <code>getSurv()</code> from <code>codes/ranger-addon.R</code>. The following codes generate a testing data. We replace the <code>NA</code> with <span class="math inline">\((-M, M)\)</span> in the testing data to make it comparable with the training data.</p>
+<div id="generate-testing-data" class="section level2">
+<h2>Generate testing data</h2>
+<p>The following codes generate a testing data. We replace the <code>NA</code> with <span class="math inline">\((-M, M)\)</span> in the testing data to make it comparable with the training data.</p>
 <pre class="r"><code>&gt; dat0 &lt;- simDat(500, 0)
 &gt; tmp &lt;- dat0[,colSums(is.na(dat0)) &gt; 0]
 &gt; tmp[is.na(tmp)] &lt;- 1e5
 &gt; dat0[is.na(dat0)] &lt;- -1e5
 &gt; dat0 &lt;- data.frame(dat0, tmp)</code></pre>
-<p>The following codes compute the predicted probabilities with the proposed ensemble procedure.</p>
+</div>
+<div id="calculate-predicted-survival-probabilities-with-ensemble" class="section level2">
+<h2>Calculate predicted survival probabilities with ensemble</h2>
+<p>The proposed ensemble procedure is implemented in <code>getSurv()</code> from <code>codes/ranger-addon.R</code>. The following codes compute the predicted probabilities with the proposed ensemble procedure.</p>
 <pre class="r"><code>&gt; getSurv &lt;- function(fit, trainDat, testDat) {
 +   resChar &lt;- strsplit(as.character(fit$call)[2], &quot;\\s~&quot;)[[1]][1] 
 +   resChar &lt;- gsub(&quot;Surv|[(]|[)]&quot;, &quot;&quot;, resChar)
@@ -499,7 +502,7 @@ Call: apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 </div>
 <div id="evaluating-model-performance" class="section level2">
 <h2>Evaluating model performance</h2>
-<p>The <code>getTrueSurv()</code> function from <code>codes/data.R</code> compute the true landmark probability using Monte Carlo method for this scenario.</p>
+<p>The <code>getTrueSurv()</code> function from <code>codes/3B.R</code> compute the true landmark probability using Monte Carlo method for this scenario.</p>
 <pre class="r"><code>&gt; getTrueSurv &lt;- function(dat) {
 +   trSurv &lt;- list()
 +   for (i in 1:nrow(dat)) {

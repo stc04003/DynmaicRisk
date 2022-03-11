@@ -48,7 +48,7 @@ simDat <- function(n, cen) {
 set.seed(1); dat <- simDat(n = 400, cen = .2)
 ```
 
-The `simDat()` function from `codes/data.R` takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
+The `simDat()` function from `codes/sim3C.R` takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
 
 ```{R}
 names(dat)
@@ -111,7 +111,7 @@ the true probability is challenging.
 
 ## Evaluating model performance
 
-The `getTrueSurv()` function from `codes/data.R` compute the true landmark probability using 
+The `getTrueSurv()` function from `codes/3C.R` compute the true landmark probability using 
 Monte Carlo method for this scenario.
 
 ```{R}

@@ -11,7 +11,7 @@
 
 
 
-<title>Random landmark time with longitudinal predictors measured at the intermediate event.</title>
+<title>Random landmark time with longitudinal predictors measured at times 1, 2, 3, 4, and 5.</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -360,7 +360,7 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">Random landmark time with longitudinal predictors measured at the intermediate event.</h1>
+<h1 class="title toc-ignore">Random landmark time with longitudinal predictors measured at times 1, 2, 3, 4, and 5.</h1>
 
 </div>
 
@@ -368,10 +368,10 @@ pre code {
 <p>In the following example, we used the <code>ranger()</code> function implemented in <code>R</code> package <code>ranger</code> (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.</p>
 <div id="generate-simulated-data" class="section level2">
 <h2>Generate simulated data</h2>
-<p>We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is the event of interest. Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, the target landmark probability is <span class="math display">\[P(T\ge U + t|T\ge U, U, W(U), Z),\]</span> where <span class="math inline">\(T\)</span> is a continuous failure time, <span class="math inline">\(U\)</span> is the time to the intermediate event (time from the healthy state to the disease state), <span class="math inline">\(W(U)\)</span> is a <span class="math inline">\(q\)</span>-dimensional vector of time-dependent predictors measured at <span class="math inline">\(U\)</span>, and <span class="math inline">\(Z\)</span> is a <span class="math inline">\(p\)</span>-dimensional vector of baseline predictors.</p>
+<p>We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is the event of interest. Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, the target landmark probability is <span class="math display">\[P(T\ge U + t|T\ge U, U, W(1, U), W(2, U), W(3, U), W(4, U), W(5, U), Z),\]</span> where <span class="math inline">\(T\)</span> is a continuous failure time, <span class="math inline">\(U\)</span> is the time to the intermediate event (time from the healthy state to the disease state), <span class="math inline">\(W(U)\)</span> is a <span class="math inline">\(q\)</span>-dimensional vector of time-dependent predictors measured at times 1, 2, 3, 4, and 5, and <span class="math inline">\(Z\)</span> is a <span class="math inline">\(p\)</span>-dimensional vector of baseline predictors.</p>
 <p>The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.</p>
 <pre class="r"><code>&gt; Wt &lt;- function(t, a) a * pweibull(.2 * t, 2)
-&gt; simDat &lt;- function(n, cen) {
+&gt; simDat &lt;- function(n, cen, test = FALSE) {
 +   p &lt;- 10
 +   Z &lt;- matrix(rnorm(n * p), n)
 +   a &lt;- matrix(runif(n * p, -1, 1), n)
@@ -383,38 +383,60 @@ pre code {
 +   pb &lt;- 1 / (1 + 1 / exp(rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3]) + g))
 +   if (cen == 0) cc &lt;- rep(Inf, n)
 +   if (cen == .2) cc &lt;- rexp(n, .04)
-+   if (cen == .4) cc &lt;- rexp(n, .12)  
-+   dat0 &lt;- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z, W = Wt(t1, a))
++   if (cen == .4) cc &lt;- rexp(n, .12)
++   if (test)
++     dat0 &lt;- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z, a = a, 
++                        W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
++   else
++     dat0 &lt;- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z,
++                        W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
 +   keep &lt;- rbinom(n, 1, pb) &gt; 0
 +   dat0$Time &lt;- pmin(dat0$Time, cc)
 +   dat0$status &lt;- 1 * (dat0$Time &lt; cc)
 +   dat &lt;- subset(dat0[keep,], Time &gt;= D)
++   for (i in 1:nrow(dat)) {
++     if (floor(dat$Time[i]) &lt; 5) dat[i, grep(&quot;W5&quot;, names(dat0))] &lt;- NA
++     if (floor(dat$Time[i]) &lt; 4) dat[i, grep(&quot;W4&quot;, names(dat0))] &lt;- NA
++     if (floor(dat$Time[i]) &lt; 3) dat[i, grep(&quot;W3&quot;, names(dat0))] &lt;- NA
++     if (floor(dat$Time[i]) &lt; 2) dat[i, grep(&quot;W2&quot;, names(dat0))] &lt;- NA
++     if (floor(dat$Time[i]) &lt; 1) dat[i, grep(&quot;W1&quot;, names(dat0))] &lt;- NA
++   }
 +   dat$Time &lt;- dat$Time - dat$D
 +   rownames(dat) &lt;- NULL
 +   return(dat)
 + }
 &gt; set.seed(1); dat &lt;- simDat(n = 400, cen = .2)</code></pre>
-<p>The <code>simDat()</code> function from <code>codes/sim3C.R</code> takes on two arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively.</p>
+<p>The <code>simDat()</code> function from <code>codes/sim3A.R</code> takes on two required arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively. The third (optional) argument, <code>test</code>, indicates whether a testing set is being generated.</p>
 <pre class="r"><code>&gt; names(dat)</code></pre>
 <pre><code> [1] &quot;Time&quot;   &quot;status&quot; &quot;D&quot;      &quot;Z.1&quot;    &quot;Z.2&quot;    &quot;Z.3&quot;    &quot;Z.4&quot;    &quot;Z.5&quot;   
- [9] &quot;Z.6&quot;    &quot;Z.7&quot;    &quot;Z.8&quot;    &quot;Z.9&quot;    &quot;Z.10&quot;   &quot;W.1&quot;    &quot;W.2&quot;    &quot;W.3&quot;   
-[17] &quot;W.4&quot;    &quot;W.5&quot;    &quot;W.6&quot;    &quot;W.7&quot;    &quot;W.8&quot;    &quot;W.9&quot;    &quot;W.10&quot;  </code></pre>
+ [9] &quot;Z.6&quot;    &quot;Z.7&quot;    &quot;Z.8&quot;    &quot;Z.9&quot;    &quot;Z.10&quot;   &quot;W1.1&quot;   &quot;W1.2&quot;   &quot;W1.3&quot;  
+[17] &quot;W1.4&quot;   &quot;W1.5&quot;   &quot;W1.6&quot;   &quot;W1.7&quot;   &quot;W1.8&quot;   &quot;W1.9&quot;   &quot;W1.10&quot;  &quot;W2.1&quot;  
+[25] &quot;W2.2&quot;   &quot;W2.3&quot;   &quot;W2.4&quot;   &quot;W2.5&quot;   &quot;W2.6&quot;   &quot;W2.7&quot;   &quot;W2.8&quot;   &quot;W2.9&quot;  
+[33] &quot;W2.10&quot;  &quot;W3.1&quot;   &quot;W3.2&quot;   &quot;W3.3&quot;   &quot;W3.4&quot;   &quot;W3.5&quot;   &quot;W3.6&quot;   &quot;W3.7&quot;  
+[41] &quot;W3.8&quot;   &quot;W3.9&quot;   &quot;W3.10&quot;  &quot;W4.1&quot;   &quot;W4.2&quot;   &quot;W4.3&quot;   &quot;W4.4&quot;   &quot;W4.5&quot;  
+[49] &quot;W4.6&quot;   &quot;W4.7&quot;   &quot;W4.8&quot;   &quot;W4.9&quot;   &quot;W4.10&quot;  &quot;W5.1&quot;   &quot;W5.2&quot;   &quot;W5.3&quot;  
+[57] &quot;W5.4&quot;   &quot;W5.5&quot;   &quot;W5.6&quot;   &quot;W5.7&quot;   &quot;W5.8&quot;   &quot;W5.9&quot;   &quot;W5.10&quot; </code></pre>
 <pre class="r"><code>&gt; head(dat[, c(1:5, 14:15)]) </code></pre>
-<pre><code>        Time status         D        Z.1        Z.2           W.1           W.2
-1 0.33287199      1 3.2491162 -0.6264538  1.0744410 -0.2560830398 -0.2965939716
-2 8.41871360      1 1.0447505  0.1836433  1.8956548 -0.0318106031 -0.0070139599
-3 0.13400898      1 4.4229831 -0.8356286 -0.6029973  0.3014749450  0.3778652986
-4 1.09821920      1 2.3055208  1.5952808 -0.3908678 -0.0305878910  0.1440122438
-5 0.02807212      1 0.1503251  0.3295078 -0.4162220  0.0003901334 -0.0008796919
-6 0.58646119      0 2.9984051  0.7383247 -0.2956775 -0.1781971479  0.1950746982</code></pre>
+<pre><code>        Time status         D        Z.1        Z.2         W1.1        W1.2
+1 0.33287199      1 3.2491162 -0.6264538  1.0744410 -0.029151864 -0.03376353
+2 8.41871360      1 1.0447505  0.1836433  1.8956548 -0.029196848 -0.00643765
+3 0.13400898      1 4.4229831 -0.8356286 -0.6029973  0.021780081  0.02729891
+4 1.09821920      1 2.3055208  1.5952808 -0.3908678 -0.006261898  0.02948193
+5 0.02807212      1 0.1503251  0.3295078 -0.4162220           NA          NA
+6 0.58646119      0 2.9984051  0.7383247 -0.2956775 -0.023132118  0.02532303</code></pre>
 <p>The <code>simDat()</code> returns a <code>data.frame</code> with the following variables.</p>
 <ul>
 <li><code>Time</code> observed survival time after <span class="math inline">\(U\)</span>, e.g., <span class="math inline">\(T-U\)</span>.</li>
 <li><code>status</code> censoring indicator; 1 if <code>Time</code> is the event of interest (death) and 0 if <code>Time</code> is censored.</li>
 <li><code>D</code> time from the healthy state to the diseased state. This is also the landmark time in this scenario.</li>
 <li><code>Z.1</code>…<code>Z.10</code> are 10 baseline predictors.</li>
-<li><code>W.1</code>…<code>W.10</code> are 10 time-dependent predictors measured at <span class="math inline">\(U\)</span>.</li>
+<li><code>W1.1</code>, <code>W1.2</code>…<code>W5.9</code>, <code>W5.10</code> are the time-dependent predictors expressed as <code>Wk.j</code>, which indicates the <span class="math inline">\(j\)</span>th time-dependent predictors is observed at time <code>k</code>.</li>
 </ul>
+<p>The time-dependent predictors are missing for those subjects who experienced the event of interest (death) or was censored by <span class="math inline">\(t_1 = 1\)</span>. Following the purposed data preprocessing procedure, the following codes replace <code>NA</code> with <span class="math inline">\((-M, M)\)</span> for some large value <span class="math inline">\(M\)</span>.</p>
+<pre class="r"><code>&gt; tmp &lt;- dat[,colSums(is.na(dat)) &gt; 0]
+&gt; tmp[is.na(tmp)] &lt;- 1e5
+&gt; dat[is.na(dat)] &lt;- -1e5
+&gt; dat &lt;- data.frame(dat, tmp)</code></pre>
 </div>
 <div id="construct-trees-with-ranger" class="section level2">
 <h2>Construct trees with <code>ranger</code></h2>
@@ -422,6 +444,7 @@ pre code {
 <pre class="r"><code>&gt; library(survival)
 &gt; library(ranger)
 &gt; (fit &lt;- ranger(Surv(Time, status) ~ ., data = dat))</code></pre>
+<pre><code>Growing trees.. Progress: 51%. Estimated remaining time: 30 seconds.</code></pre>
 <pre><code>Ranger result
 
 Call:
@@ -430,17 +453,23 @@ Call:
 Type:                             Survival 
 Number of trees:                  500 
 Sample size:                      239 
-Number of independent variables:  21 
-Mtry:                             5 
+Number of independent variables:  111 
+Mtry:                             11 
 Target node size:                 3 
 Variable importance mode:         none 
 Splitrule:                        logrank 
 Number of unique death times:     239 
-OOB prediction error (1-C):       0.2868266 </code></pre>
+OOB prediction error (1-C):       0.1949998 </code></pre>
 </div>
 <div id="calculate-predicted-survival-probabilities-with-ensemble" class="section level2">
 <h2>Calculate predicted survival probabilities with ensemble</h2>
-<p>The proposed ensemble procedure is implemented in <code>getSurv()</code> from <code>codes/ranger-addon.R</code>. The following codes generate a testing data and compute the predicted probabilities with the proposed ensemble procedure.</p>
+<p>The proposed ensemble procedure is implemented in <code>getSurv()</code> from <code>codes/ranger-addon.R</code>. The following codes generate a testing data. We replace the <code>NA</code> with <span class="math inline">\((-M, M)\)</span> in the testing data to make it comparable with the training data.</p>
+<pre class="r"><code>&gt; dat0 &lt;- simDat(500, 0, T)
+&gt; tmp &lt;- dat0[,colSums(is.na(dat0)) &gt; 0]
+&gt; tmp[is.na(tmp)] &lt;- 1e5
+&gt; dat0[is.na(dat0)] &lt;- -1e5
+&gt; dat0 &lt;- data.frame(dat0, tmp)</code></pre>
+<p>The following codes generate a testing data and compute the predicted probabilities with the proposed ensemble procedure.</p>
 <pre class="r"><code>&gt; getSurv &lt;- function(fit, trainDat, testDat) {
 +   resChar &lt;- strsplit(as.character(fit$call)[2], &quot;\\s~&quot;)[[1]][1] 
 +   resChar &lt;- gsub(&quot;Surv|[(]|[)]&quot;, &quot;&quot;, resChar)
@@ -462,36 +491,36 @@ OOB prediction error (1-C):       0.2868266 </code></pre>
 +   apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 + }
 &gt; 
-&gt; dat0 &lt;- simDat(500, 0)
 &gt; predS &lt;- getSurv(fit, dat, dat0)
 &gt; head(predS, 3)</code></pre>
 <pre><code>[[1]]
 Step function
 Call: apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
  x[1:239] = 0.0081491, 0.011054, 0.011668,  ..., 76.389, 113.75
-240 plateau levels =      1,      1, 0.99952,  ..., 0.091544, 0.091544
+240 plateau levels =      1,      1,      1,  ..., 0.030107, 0.030107
 
 [[2]]
 Step function
 Call: apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
  x[1:239] = 0.0081491, 0.011054, 0.011668,  ..., 76.389, 113.75
-240 plateau levels =      1,  0.999,  0.999,  ..., 0.028241, 0.028241
+240 plateau levels =      1,      1,      1,  ..., 0.026642, 0.026642
 
 [[3]]
 Step function
 Call: apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
  x[1:239] = 0.0081491, 0.011054, 0.011668,  ..., 76.389, 113.75
-240 plateau levels =      1, 0.99801, 0.99801,  ..., 0.046578, 0.046578</code></pre>
+240 plateau levels =      1, 0.99896, 0.99844,  ..., 0.0043672, 0.0043672</code></pre>
 <p>The <code>getSurv()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the landmark probability for the <span class="math inline">\(i\)</span>th subject from the testing data. Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of the true probability is challenging.</p>
 </div>
 <div id="evaluating-model-performance" class="section level2">
 <h2>Evaluating model performance</h2>
-<p>The <code>getTrueSurv()</code> function from <code>codes/3C.R</code> compute the true landmark probability using Monte Carlo method for this scenario.</p>
+<p>The <code>getTrueSurv()</code> function from <code>codes/3A.R</code> compute the true landmark probability using Monte Carlo method for this scenario.</p>
 <pre class="r"><code>&gt; getTrueSurv &lt;- function(dat) {
 +   trSurv &lt;- list()
-+   n2 &lt;- 1e5
 +   for (i in 1:nrow(dat)) {
-+     W0 &lt;- as.numeric(dat[i, grep(&quot;W&quot;, names(dat))])[1:3]
++     n2 &lt;- 1e5
++     a0 &lt;- as.numeric(dat[i, grep(&quot;a&quot;, names(dat))])[1:3]
++     W0 &lt;- Wt(dat$D[i], a0)
 +     Z0 &lt;- as.numeric(dat[i, grep(&quot;Z&quot;, names(dat))])[1:3]    
 +     t1 &lt;- as.numeric(dat$D[i])
 +     g &lt;- rgamma(n2, 2, 2)
@@ -508,11 +537,11 @@ Call: apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 <pre class="r"><code>&gt; t0 &lt;- seq(0, quantile(dat0$Time[dat0$status &gt; 0], .9), .01)
 &gt; ## Intergrated absolute error
 &gt; mean(sapply(1:nrow(dat0), function(i) abs(predS[[i]](t0) - trueS[[i]](t0))))</code></pre>
-<pre><code>[1] 0.1817185</code></pre>
+<pre><code>[1] 0.1561653</code></pre>
 <pre class="r"><code>&gt; ## Intergrated MSE
 &gt; mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))</code></pre>
-<pre><code>[1] 0.06385354</code></pre>
-<p>The considered example is the Scenario (III-C) in our manuscript. The functions <code>simDat()</code> and <code>getTrueSurv()</code> are also available in <code>../codes/sim3C.R</code>. The function <code>getSurv()</code> is also available in <code>../codes/ranger-addon.R</code>.</p>
+<pre><code>[1] 0.06765895</code></pre>
+<p>The considered example is the Scenario (III-C) in our manuscript. The functions <code>simDat()</code> and <code>getTrueSurv()</code> are also available in <code>../codes/sim3A.R</code>. The function <code>getSurv()</code> is also available in <code>../codes/ranger-addon.R</code>.</p>
 </div>
 <div id="reference" class="section level2">
 <h2>Reference</h2>
