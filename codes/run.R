@@ -64,6 +64,11 @@ getCON <- function(tt, si, sc, df0) {
   sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
 }
 
+## Based on testing data
+mean(sapply(t0, getCON, predS, sc, dat0), na.rm = T)
+
+## Based on training data
+(c0 <- mean(sapply(t0, getCON, getSurv(fit, dat, dat), sc, dat), na.rm = T))
 
 i <- 2
 B <- 5
@@ -80,6 +85,39 @@ Sys.time() - now
 vimps <- sapply(1:length(vnames), function(i) 
   replicate(B, {
     dat2 <- dat[order(dat$Time),]
-    dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
     f <- getVi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+
+library(xtable)
+library(dplyr)
+library(forcat)
+library(ggridges)
+library(ggpubr)
+
+dd <- data.frame(vars = rep(vnames, each = B), vimp = c0 - c(vimps))
+dd <- dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median'))
+
+dd2 <- do.call(rbind, lapply(split(dd, dd$vars), function(d)
+  data.frame(vars = unique(d$vars), vimp = median(d$vimp))))
+ggplot(dd2, aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
+
+## ridge
+ggplot(dd, aes(x = vimp, y = vars)) + geom_density_ridges(rel_min_height = 1e-3)
+  ## geom_density_ridges(bandwidth = 1e-2, alpha = .5, rel_min_height = 5e-3) 
+
+## boxplot
+ggplot(dd, aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+
+library(mcreplicate)
+
+vimps <- sapply(1:length(vnames), function(i) 
+  mc_replicate(B, {
+    dat2 <- dat[order(dat$Time),]
+    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    f <- getVi(fit, dat2)
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+
+dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
+dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>%
+  ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
