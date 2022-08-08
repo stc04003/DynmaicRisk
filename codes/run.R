@@ -51,25 +51,35 @@ getVi <- function(fit, df) {
 }
 
 
-getCON <- function(tt, si, df0) {
+sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
+getCON <- function(tt, si, sc, df0) {
   c1 <- outer(df0$status, rep(1, length(df0$status)))
   c2 <- outer(df0$Time <= tt, df0$Time > tt)
   l <- length(si)
   stmp <- sapply(1:l, function(x) si[[x]](tt))
   c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
-  ## c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
-  ## c4 <- ifelse(c4 < 1e-5, NA, c4)
+  c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
+  c4 <- ifelse(c4 < 1e-5, NA, c4)
   c4 <- 1
   sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
 }
 
 
 i <- 2
-B <- 10
+B <- 5
 
+now <- Sys.time()
 replicate(B, {
   dat2 <- dat[order(dat$Time),]
   dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
   f <- getVi(fit, dat2)
   mean(sapply(t0, getCON, f, dat2), na.rm = T)})
+Sys.time() - now
 
+
+vimps <- sapply(1:length(vnames), function(i) 
+  replicate(B, {
+    dat2 <- dat[order(dat$Time),]
+    dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    f <- getVi(fit, dat2)
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
