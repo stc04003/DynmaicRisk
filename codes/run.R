@@ -91,7 +91,7 @@ vimps <- sapply(1:length(vnames), function(i)
 
 library(xtable)
 library(dplyr)
-library(forcat)
+library(forcats)
 library(ggridges)
 library(ggpubr)
 
@@ -121,3 +121,13 @@ vimps <- sapply(1:length(vnames), function(i)
 dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>%
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+
+
+
+
+vimps <- sapply(1:2, function(i) 
+  mc_replicate(B, {
+    dat2 <- dat[order(dat$Time),]
+    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    f <- getVi(fit, dat2)
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))

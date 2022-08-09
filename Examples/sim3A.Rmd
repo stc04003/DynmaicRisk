@@ -24,7 +24,7 @@ and $Z$ is a $p$-dimensional vector of baseline predictors.
 The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.
 ```{R}
 Wt <- function(t, a) a * pweibull(.2 * t, 2)
-simDat <- function(n, cen, test = FALSE) {
+simDat3A <- function(n, cen, test = FALSE) {
   p <- 10
   Z <- matrix(rnorm(n * p), n)
   a <- matrix(runif(n * p, -1, 1), n)
@@ -58,11 +58,11 @@ simDat <- function(n, cen, test = FALSE) {
   rownames(dat) <- NULL
   return(dat)
 }
-set.seed(1); dat <- simDat(n = 400, cen = .2)
+set.seed(1); dat <- simDat3A(n = 400, cen = .2)
 ```
 
-The `simDat()` function from `codes/sim3A.R` takes on two required arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively. 
-The third (optional) argument, `test`, indicates whether a testing set is being generated.
+The `simDat3A()` function takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
+The `simDat3A()` function is also implemented in `codes/sim3A.R` but is included here for the completeness of this vignette.
 
 ```{R}
 names(dat)
@@ -135,23 +135,24 @@ getSurv <- function(fit, trainDat, testDat) {
   })
   apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 }
-
+```
+```{R}	
 predS <- getSurv(fit, dat, dat0)
 head(predS, 3)
 ```
 
 The `getSurv()` function returns a list, where the $i$th member of the list gives the landmark probability for 
 the $i$th subject from the testing data. 
-Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of
-the true probability is challenging. 
 
 ## Evaluating model performance
 
-The `getTrueSurv()` function from `codes/3A.R` compute the true landmark probability using 
+Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of
+the true probability is challenging. 
+The `getTrueSurv3A()` function from `codes/3A.R` compute the true landmark probability using 
 Monte Carlo method for this scenario.
 
 ```{R}
-getTrueSurv <- function(dat) {
+getTrueSurv3A <- function(dat) {
   trSurv <- list()
   for (i in 1:nrow(dat)) {
     n2 <- 1e5
@@ -168,10 +169,10 @@ getTrueSurv <- function(dat) {
   }
   trSurv
 }
-trueS <- getTrueSurv(dat0)
+trueS <- getTrueSurv3A(dat0)
 ```
 
-The `getTrueSurv()` function returns a list, where the $i$th member of the list gives the true landmark probability for 
+The `getTrueSurv3A()` function returns a list, where the $i$th member of the list gives the true landmark probability for 
 the $i$th subject from the testing data. 
 The following codes calculate the integrated mean absolute error and the integrated mean squared error
 to evaluate the model performance. 
@@ -184,10 +185,85 @@ mean(sapply(1:nrow(dat0), function(i) abs(predS[[i]](t0) - trueS[[i]](t0))))
 mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))
 ```
 
-The considered example is the Scenario (III-C) in our manuscript. 
-The functions `simDat()` and `getTrueSurv()` are also available in `../codes/sim3A.R`.
-The function `getSurv()` is also available in `../codes/ranger-addon.R`.
+In addition, the concordance measure, which is equivalent to the area under the ROC curve,
+can also be used to evaluate the model performance. 
+The following implementation can be used to compute the concordance at time `tt`. 
+```{R}
+getCON <- function(tt, si, sc, df0) {
+  c1 <- outer(df0$status, rep(1, length(df0$status)))
+  c2 <- outer(df0$Time <= tt, df0$Time > tt)
+  l <- length(si)
+  stmp <- sapply(1:l, function(x) si[[x]](tt))
+  c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
+  c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
+  c4 <- ifelse(c4 < 1e-5, NA, c4)
+  c4 <- 1
+  sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
+}
+```
+The cumulative concordance of the testing data can be computed as follows,
+with `sc` being the Kaplan-Meier estimate of the censoring distribution.
+```{R}
+sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
+mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
+```
 
+## Permutation variable importance
+
+The permutation variable importance of a predictor is computed as the average decrease in 
+model accuracy on the out-of-bag (OOB) samples when the respective feature values are randomly permuted.
+We extend this idea to study variable importance in dynamic risk prediction using censored data. 
+First, we observe the cumulative concordance of the training data as follows. 
+```{R}
+(con0 <- mean(sapply(t0, getCON, getSurv(fit, dat, dat), sc, dat), na.rm = T))
+```
+Then, we calculate the OOB cumulative concordance for prediction based on trees built without 
+the $i$th subject and when each predictor of interest is randomly permuted. 
+The following implemention gives a survival prediction without the $i$th subject.
+```{R}
+getSi <- function(fit, df) {
+  df <- df[order(df$Time + df$status),]
+  tt <- sort(df$Time)
+  rownames(df) <- NULL
+  sapply(1:nrow(df), function(s) {
+    fit.tmp <- fit
+    takei <- which(unlist(lapply(fit$forest$OobSampleIDs, function(x) any(x %in% (s - 1)))))
+    fit.tmp$forest$OobSampleIDs <- fit.tmp$forest$OobSampleIDs[takei]
+    fit.tmp$forest$num.trees <- fit.tmp$num.trees <- length(takei)
+    fit.tmp$forest$child.nodeIDs <- fit.tmp$forest$child.nodeIDs[takei]
+    fit.tmp$forest$split.values <- fit.tmp$forest$split.values[takei]
+    fit.tmp$forest$SampleIDs <- fit.tmp$forest$SampleIDs[takei]
+    fit.tmp$forest$chf <- fit.tmp$forest$chf[takei]
+    fit.tmp$forest$split.varIDs <- fit.tmp$forest$split.varIDs[takei]
+    getSurv(fit.tmp, df, df[s,])
+  })
+}
+```
+The following generates 100 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
+and compute the corresponding OOB cumulative concordance.
+```{R}
+vnames <- setdiff(names(dat), c("Time", "status", "D"))
+B <- 20
+```
+
+```{R, cache = TRUE, message = FALSE}
+library(mcreplicate)
+vimps <- sapply(1:length(vnames), function(i) 
+  mc_replicate(B, {
+    dat2 <- dat[order(dat$Time),]
+    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    f <- getSi(fit, dat2)
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+```
+The following plots the variable importances sorts by the median OOB cumulative concordance.
+```{R, message = FALSE}
+library(dplyr)
+library(forcats)
+library(ggplot2)
+dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
+dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
+  ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+```
 
 ## Reference 
 

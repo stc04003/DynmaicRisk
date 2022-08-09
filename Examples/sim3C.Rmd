@@ -166,7 +166,6 @@ getCON <- function(tt, si, sc, df0) {
   c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
   c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
   c4 <- ifelse(c4 < 1e-5, NA, c4)
-  c4 <- 1
   sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
 }
 ```
@@ -212,10 +211,11 @@ The following generates 100 permutations for each predictor $Z_1, \ldots, Z_{10}
 and compute the corresponding OOB cumulative concordance.
 ```{R}
 vnames <- setdiff(names(dat), c("Time", "status", "D"))
-B <- 20
+B <- 100
 ```
 
 ```{R, cache = TRUE, message = FALSE}
+set.seed(0)
 library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
