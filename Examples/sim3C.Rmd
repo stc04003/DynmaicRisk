@@ -172,7 +172,7 @@ getCON <- function(tt, si, sc, df0) {
 The cumulative concordance of the testing data can be computed as follows,
 with `sc` being the Kaplan-Meier estimate of the censoring distribution.
 ```{R}
-sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
+sc <- with(survfit(Surv(Time + D, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
 mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 ```
 
@@ -220,7 +220,7 @@ library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
-    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    dat2[,vnames[i]] <- ifelse(dat2$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```

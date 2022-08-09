@@ -105,6 +105,8 @@ tmp <- dat0[, colSums(is.na(dat0)) > 0]
 tmp[is.na(tmp)] <- 1e5
 dat0[is.na(dat0)] <- -1e5
 dat0 <- data.frame(dat0, tmp)
+names(dat0)[grep("W", names(dat0))] <- 
+  paste0(paste0("W.", 1:10), ".", rep(1:2, each = 10))
 ```
 
 ## Calculate predicted survival probabilities with the proposed ensemble method
@@ -221,7 +223,7 @@ First, we observe the cumulative concordance of the training data as follows.
 ```
 Then, we calculate the OOB cumulative concordance for prediction based on trees built without 
 the $i$th subject and when each predictor of interest is randomly permuted. 
-The following implemention gives a survival prediction without the $i$th subject.
+The following implementation gives a survival prediction without the $i$th subject.
 ```{R}
 getSi <- function(fit, df) {
   df <- df[order(df$Time + df$status),]
@@ -254,7 +256,7 @@ vimps <- sapply(1:length(vnames), function(i)
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
     permID <- grep(vnames[i], names(dat2))
-    dat2[,permID] <- ifelse(dat$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,permID])
+    dat2[,permID] <- ifelse(dat2$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,permID])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```

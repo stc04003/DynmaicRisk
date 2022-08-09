@@ -51,6 +51,7 @@ getVi <- function(fit, df) {
 }
 
 
+
 sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
 getCON <- function(tt, si, sc, df0) {
   c1 <- outer(df0$status, rep(1, length(df0$status)))
@@ -131,3 +132,34 @@ vimps <- sapply(1:2, function(i)
     dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
     f <- getVi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+
+
+
+which(stringr::str_detect("W.1", b))
+which(stringr::str_detect(b, "W.1"))
+
+
+b[14]
+
+
+grep("W.1", b, fixed = T)
+
+b[grep("W.1", b, fixed = T)]
+
+
+
+source("sim3B.R")
+dat0 <- simDat3B(100, 0)
+tmp <- dat0[, colSums(is.na(dat0)) > 0]
+tmp[is.na(tmp)] <- 1e5
+dat0[is.na(dat0)] <- -1e5
+dat0 <- data.frame(dat0, tmp)
+
+paste0("W.", 1:10)
+
+paste("W", 1:10, 1, sep = ".")
+
+paste0(paste0("W.", 1:10), ".", rep(1:2, each = 10))
+
+names(dat0)[grep("W", names(dat0))] <- 
+  paste0(paste0("W.", 1:10), ".", rep(1:2, each = 10))
