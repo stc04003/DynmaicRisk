@@ -199,14 +199,13 @@ getCON <- function(tt, si, sc, df0) {
   c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
   c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
   c4 <- ifelse(c4 < 1e-5, NA, c4)
-  c4 <- 1
   sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
 }
 ```
 The cumulative concordance of the testing data can be computed as follows,
 with `sc` being the Kaplan-Meier estimate of the censoring distribution.
 ```{R}
-sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
+sc <- with(survfit(Surv(Time + D, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
 mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 ```
 
@@ -244,8 +243,8 @@ getSi <- function(fit, df) {
 The following generates 100 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
 and compute the corresponding OOB cumulative concordance.
 ```{R}
-vnames <- setdiff(names(dat), c("Time", "status", "D"))
-B <- 20
+vnames <- c(paste("Z", 1:10, sep = "."), paste("W", 1:10, sep = "."))
+B <- 100
 ```
 
 ```{R, cache = TRUE, message = FALSE}
@@ -253,7 +252,8 @@ library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
-    dat2[,vnames[i]] <- ifelse(dat$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    permID <- grep(vnames[i], names(dat2))
+    dat2[,permID] <- ifelse(dat$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,premID])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```
