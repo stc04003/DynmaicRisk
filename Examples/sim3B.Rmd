@@ -52,7 +52,7 @@ simDat3B <- function(n, cen) {
   dat0$D <- pmin(dat0$D, 2)
   dat <- subset(dat0, Time > 2)
   dat$Time <- dat$Time - 2
-  dat[dat$D == 2,grep("W", names(dat0))] <- NA
+  dat[dat$D == 2, grep("W", names(dat0))] <- NA
   rownames(dat) <- NULL
   return(dat)
 }
@@ -253,7 +253,7 @@ vimps <- sapply(1:length(vnames), function(i)
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
     permID <- grep(vnames[i], names(dat2))
-    dat2[,permID] <- ifelse(dat$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,premID])
+    dat2[,permID] <- ifelse(dat$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,permID])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```
