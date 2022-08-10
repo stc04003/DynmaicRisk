@@ -246,7 +246,7 @@ getSi <- function(fit, df) {
 The following generates 100 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
 and compute the corresponding OOB cumulative concordance.
 ```{R}
-vnames <- c(paste("Z", 1:10, sep = "."), paste("W", 1:10, sep = "."))
+vnames <- paste("Z", 1:10, sep = ".")
 B <- 100
 ```
 
@@ -255,9 +255,8 @@ library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
+    permID <- grep(vnames[i], names(dat2))[1]
+    dat2[, permID] <- sample(dat2[,permID])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```

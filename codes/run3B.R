@@ -48,6 +48,7 @@ mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 (con0 <- mean(sapply(t0, getCON, getSurv(fit, dat, dat), sc, dat), na.rm = T))
 
 vnames <- c(paste("Z", 1:10, sep = "."), paste0("W.", 1:10, "."))
+vnames <- paste("Z", 1:10, sep = ".")
 B <- 100
 
 ## Variable importance 
@@ -72,65 +73,15 @@ dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>%
 
 
 
-
-
+vnames <- paste("Z", 1:10, sep = ".")
+B <- 50
 
 set.seed(0)
 vimps0 <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
     permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
-    f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
-
-set.seed(1)
-vimps1 <- sapply(1:length(vnames), function(i) 
-  mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
-    f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
-
-set.seed(2)
-vimps2 <- sapply(1:length(vnames), function(i) 
-  mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
-    f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
-
-set.seed(3)
-vimps3 <- sapply(1:length(vnames), function(i) 
-  mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
-    f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
-
-set.seed(4)
-vimps4 <- sapply(1:length(vnames), function(i) 
-  mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
-    f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
-
-set.seed(5)
-vimps5 <- sapply(1:length(vnames), function(i) 
-  mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
+    toPerm <- dat2[,permID[1]] > -1e5
     dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))

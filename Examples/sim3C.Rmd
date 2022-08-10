@@ -220,7 +220,7 @@ library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
-    dat2[,vnames[i]] <- ifelse(dat2$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```
