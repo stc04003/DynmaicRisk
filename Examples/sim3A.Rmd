@@ -217,13 +217,11 @@ mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 The permutation variable importance of a predictor is computed as the average decrease in 
 model accuracy on the out-of-bag (OOB) samples when the respective feature values are randomly permuted.
 We extend this idea to study variable importance in dynamic risk prediction using censored data. 
-First, we observe the cumulative concordance of the training data as follows. 
-```{R}
-(con0 <- mean(sapply(t0, getCON, getSurv(fit, dat, dat), sc, dat), na.rm = T))
-```
-Then, we calculate the OOB cumulative concordance for prediction based on trees built without 
+
+
+We first calculate the OOB cumulative concordance for prediction based on trees built without 
 the $i$th subject and when each predictor of interest is randomly permuted. 
-The following implemention gives a survival prediction without the $i$th subject.
+The following implementation gives a survival prediction without the $i$th subject.
 ```{R}
 getSi <- function(fit, df) {
   df <- df[order(df$Time + df$status),]
@@ -243,32 +241,43 @@ getSi <- function(fit, df) {
   })
 }
 ```
-The following generates 100 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
+The OOB concordance measure is then computed as follows. 
+```{R}
+con0 <- mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
+```
+The following generates 50 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
 and compute the corresponding OOB cumulative concordance.
 ```{R}
-vnames <- c(paste("Z", 1:10, sep = "."), paste("W", rep(1:5, each = 10), rep(1:10, 5), sep = "."))
-B <- 100
+vnames <- setdiff(names(dat), c("Time", "status", "D"))
+B <- 50
 ```
 
 ```{R, cache = TRUE, message = FALSE}
+set.seed(0)
 library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
+    dat2 <- dat
+    if (substr(vnames[i], 1, 1) == "Z")
+      dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    else {
+      permID <- grep(vnames[i], names(dat2))
+      toPerm <- dat2[,permID[1]] > -1e5
+      dat2[toPerm, permID] <- dat2[sample(which(toPerm)), permID]
+    }
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+  }))
 ```
-The following plots the variable importances sorts by the median OOB cumulative concordance.
+Define the variable importance as the average difference in OOB concordances over all permutations.
+The following plots the variable importance sorts by the median.
 ```{R, message = FALSE}
 library(dplyr)
 library(forcats)
 library(ggplot2)
-dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
+dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps0))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
-  ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+  ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
 ```
 
 ## Reference 

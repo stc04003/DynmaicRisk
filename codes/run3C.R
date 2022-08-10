@@ -16,6 +16,7 @@ fit <- ranger(Surv(Time, status) ~ ., data = dat)
 
 ## Generate testing data and computes the predicted probabilities
 dat0 <- simDat3C(500, 0)
+
 predS <- getSurv(fit, dat, dat0)
 head(predS, 3)
 trueS <- getTrueSurv3C(dat0)
@@ -40,10 +41,12 @@ set.seed(0)
 library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    dat2[,vnames[i]] <- ifelse(dat2$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    dat2 <- dat ## [order(dat$Time),]
+    ## dat2[,vnames[i]] <- ifelse(dat2$status > 0, sample(dat2[,vnames[i]]), dat2[,vnames[i]])
+    dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+  }))
 
 ## Variable importance plot
 library(dplyr)
@@ -52,3 +55,28 @@ library(ggplot2)
 dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+
+
+con0 <- mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
+dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps))
+dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
+  ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
+
+
+mean(sapply(t0, getCON, fit, sc, dat), na.rm = T)
+mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
+
+getCON(50, getSi(fit, dat), sc, dat)
+
+con0 <- mean(sapply(t0, getCON, f, sc, dat), na.rm = T)
+con0
+
+
+
+f1 <- getSurv(fit, dat, dat)
+f2 <- getSi(fit, dat)
+
+
+(i <- sample(length(f2), 1))
+plot(t0, f1[[i]](t0), 'l', ylim = c(0, 1))
+lines(t0, f2[[i]](t0), col = 2)

@@ -30,6 +30,7 @@ simDat3B <- function(n, cen) {
   dat <- subset(dat0, Time > 2)
   dat$Time <- dat$Time - 2
   dat[dat$D == 2, grep("W", names(dat0))] <- NA
+  dat <- dat[order(dat$Time),]
   rownames(dat) <- NULL
   return(dat)
 }

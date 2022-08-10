@@ -18,7 +18,7 @@ names(dat)[grep("W", names(dat))] <-
   paste0(paste0("W.", 1:10), ".", rep(1:2, each = 10))
 
 ## Fits ranger
-fit <- ranger(Surv(Time, status) ~ ., data = dat)
+fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15)
 
 ## Generate testing data and computes the predicted probabilities
 dat0 <- simDat3B(500, 0)
@@ -56,12 +56,13 @@ set.seed(0)
 library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
+    dat2 <- dat
     permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
+    toPerm <- dat2[,permID[1]] > -1e5
     dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+  }))
 
 ## Variable importance plot
 library(dplyr)
@@ -74,18 +75,31 @@ dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>%
 
 
 vnames <- paste("Z", 1:10, sep = ".")
-B <- 50
+B <- 15
 
+## Variable importance for Z
 set.seed(0)
 vimps0 <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
-    dat2 <- dat[order(dat$Time),]
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
+    dat2 <- dat ## [order(dat$Time),]
+    permID <- grep(vnames[i], names(dat2))[1]
+    dat2[,permID] <- sample(dat2[,permID])
+    ## toPerm <- dat2[,permID[1]] > -1e5
+    ## dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
+    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+  }))
 
-dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps5))
+## boxplot
+dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps0))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
+
+## barplot
+con0 <- mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
+dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps0))
+dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
+  ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
+
+
+

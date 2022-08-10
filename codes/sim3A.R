@@ -41,6 +41,7 @@ simDat3A <- function(n, cen, test = FALSE) {
     if (floor(dat$Time[i]) < 1) dat[i, grep("W1", names(dat0))] <- NA
   }
   dat$Time <- dat$Time - dat$D
+  dat <- dat[order(dat$Time),]
   rownames(dat) <- NULL
   return(dat)
 }

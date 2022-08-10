@@ -52,7 +52,6 @@ getCON <- function(tt, si, sc, df0) {
 #' @param fit is a ranger object
 #' @param df is a data frame for the training data (the data used in creating fit)
 getSi <- function(fit, df) {
-  df <- df[order(df$Time + df$status),]
   tt <- sort(df$Time)
   rownames(df) <- NULL
   sapply(1:nrow(df), function(s) {
