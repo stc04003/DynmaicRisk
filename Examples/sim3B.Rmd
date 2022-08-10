@@ -256,7 +256,8 @@ vimps <- sapply(1:length(vnames), function(i)
   mc_replicate(B, {
     dat2 <- dat[order(dat$Time),]
     permID <- grep(vnames[i], names(dat2))
-    dat2[,permID] <- ifelse(dat2$status > 0 & dat2[,permID[1]] > -1e5, dat2[sample(nrow(dat2)), permID], dat2[,permID])
+    toPerm <- dat2$status > 0 & dat2[,permID[1]] > -1e5
+    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)}))
 ```
