@@ -32,6 +32,13 @@ simDat3B <- function(n, cen) {
   dat[dat$D == 2, grep("W", names(dat0))] <- NA
   dat <- dat[order(dat$Time),]
   rownames(dat) <- NULL
+  ## Prepare data
+  tmp <- dat[,colSums(is.na(dat)) > 0]
+  tmp[is.na(tmp)] <- 1e5
+  dat[is.na(dat)] <- -1e5
+  dat <- data.frame(dat, tmp)
+  names(dat)[grep("W", names(dat))] <- 
+    paste0(paste0("W.", 1:10), ".", rep(1:2, each = 10))
   return(dat)
 }
 

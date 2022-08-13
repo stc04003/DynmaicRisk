@@ -21,126 +21,36 @@ the target landmark probability is $$P(T\ge U + t|T\ge U, U, W(1, U), W(2, U), W
 where $T$ is a continuous failure time, $U$ is the time to the intermediate event (time from the healthy state to the disease state), $W(U)$ is a $q$-dimensional vector of time-dependent predictors measured at times 1, 2, 3, 4, and 5, 
 and $Z$ is a $p$-dimensional vector of baseline predictors.
 
-The following codes generate simulated landmark data from the irreversible multi-state model with the intermediate event as the landmark time.
+
+The following codes generate simulated data from `simDat3A()`. 
+See vignette on
+[generating simulated data](https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/data.html)
+for simulation settings.
 ```{R}
-Wt <- function(t, a) a * pweibull(.2 * t, 2)
-simDat3A <- function(n, cen, test = FALSE) {
-  p <- 10
-  Z <- matrix(rnorm(n * p), n)
-  a <- matrix(runif(n * p, -1, 1), n)
-  e <- rnorm(n)
-  g <- rgamma(n, 2 , 2)
-  t1 <- runif(n, 0, 5)
-  t2 <- exp(-5 + rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3] * Z[,1:3]) +
-            rowSums(Wt(t1, a[,1:3]) * Z[,1:3]) + log(1 + t1) + g + e)
-  pb <- 1 / (1 + 1 / exp(rowSums(Wt(t1, a[,1:3])) + rowSums(Z[,1:3]) + g))
-  if (cen == 0) cc <- rep(Inf, n)
-  if (cen == .2) cc <- rexp(n, .04)
-  if (cen == .4) cc <- rexp(n, .12)
-  if (test)
-    dat0 <- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z, a = a, 
-                       W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
-  else
-    dat0 <- data.frame(Time = t1 + t2, status = 1, D = t1, Z = Z,
-                       W1 = Wt(1, a), W2 = Wt(2, a), W3 = Wt(3, a), W4 = Wt(4, a), W5 = Wt(5, a))
-  keep <- rbinom(n, 1, pb) > 0
-  dat0$Time <- pmin(dat0$Time, cc)
-  dat0$status <- 1 * (dat0$Time < cc)
-  dat <- subset(dat0[keep,], Time >= D)
-  for (i in 1:nrow(dat)) {
-    if (floor(dat$Time[i]) < 5) dat[i, grep("W5", names(dat0))] <- NA
-    if (floor(dat$Time[i]) < 4) dat[i, grep("W4", names(dat0))] <- NA
-    if (floor(dat$Time[i]) < 3) dat[i, grep("W3", names(dat0))] <- NA
-    if (floor(dat$Time[i]) < 2) dat[i, grep("W2", names(dat0))] <- NA
-    if (floor(dat$Time[i]) < 1) dat[i, grep("W1", names(dat0))] <- NA
-  }
-  dat$Time <- dat$Time - dat$D
-  rownames(dat) <- NULL
-  return(dat)
-}
+source("../codes/sim3A.R")
 set.seed(1); dat <- simDat3A(n = 400, cen = .2)
-```
-
-The `simDat3A()` function takes on two arguments, `n` and `cen` for sample size and censoring percentage at the baseline, respectively.
-The `simDat3A()` function is also implemented in `codes/sim3A.R` but is included here for the completeness of this vignette.
-
-```{R}
-names(dat)
-head(dat[, c(1:5, 14:15)]) 
-```
-
-The `simDat3A()` returns a `data.frame` with the following variables. 
-
-  - `Time` observed survival time after $U$, e.g., $T-U$.
-  - `status` censoring indicator; 1 if `Time` is the event of interest (death) and 0 if `Time` is censored.
-  - `D` time from the healthy state to the diseased state. This is also the landmark time in this scenario. 
-  - `Z.1`...`Z.10` are 10 baseline predictors.
-  - `W1.1`, `W1.2`...`W5.9`, `W5.10` are the time-dependent predictors expressed as `Wk.j`, 
-  which indicates the $j$th time-dependent predictors is observed at time `k`. 
-
-The time-dependent predictors are missing for those subjects who experienced the event of interest (death) or 
-was censored by $t_1 = 1$.
-Following the purposed data preprocessing procedure, 
-the following codes replace `NA` with $(-M, M)$ for some large value $M$.
-```{R}
-tmp <- dat[,colSums(is.na(dat)) > 0]
-tmp[is.na(tmp)] <- 1e5
-dat[is.na(dat)] <- -1e5
-dat <- data.frame(dat, tmp)
-names(dat)[grep("W", names(dat))] <- 
-  paste("W", rep(1:5, each = 10), rep(1:10, 10), rep(1:2, each = 50), sep = ".")
 ```
 
 
 ## Construct trees with `ranger`
 
-The following fits a random survival forest with `ranger()`.
+The following fits a random survival forest with `ranger()` with a minimum node size of 15.
 ```{R}
 library(survival)
 library(ranger)
-(fit <- ranger(Surv(Time, status) ~ ., data = dat))
+(fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))
 ```
 
-## Calculate predicted survival probabilities with ensemble
+## Calculate predicted survival probabilities with the proposed ensemble method
 
-The proposed ensemble procedure is implemented in `getSurv()` from `codes/ranger-addon.R`.
-The following codes generate a testing data.
-We replace the `NA` with $(-M, M)$ in the testing data to make it comparable with the training data. 
+The following codes generate a testing data (`dat0`) and 
+compute the predicted probabilities with the proposed ensemble procedure.
+See vignette on
+[add-on functions for ensemble procedures](https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/addon.html)
+for function descriptions.
 ```{R}
+source("../codes/ranger-addon.R")
 dat0 <- simDat3A(500, 0, T)
-tmp <- dat0[,colSums(is.na(dat0)) > 0]
-tmp[is.na(tmp)] <- 1e5
-dat0[is.na(dat0)] <- -1e5
-dat0 <- data.frame(dat0, tmp)
-names(dat0)[grep("W", names(dat0))] <- 
-  paste("W", rep(1:5, each = 10), rep(1:10, 10), rep(1:2, each = 50), sep = ".")
-```
-
-The following codes generate a testing data and compute the predicted probabilities with the proposed ensemble procedure.
-
-```{R}
-getSurv <- function(fit, trainDat, testDat) {
-  resChar <- strsplit(as.character(fit$call)[2], "\\s~")[[1]][1] 
-  resChar <- gsub("Surv|[(]|[)]", "", resChar)
-  resChar <- strsplit(resChar, ", ")[[1]]
-  Time <- as.numeric(unlist(trainDat[resChar[1]]))
-  Status <- as.numeric(unlist(trainDat[resChar[2]]))
-  n <- nrow(trainDat)
-  wbij <- sapply(1:fit$forest$num.trees, function(i) {
-    out <- tabulate(1 + fit$forest$SampleIDs[[i]], nbins = n)
-    return(out) })
-  trainDatNodes <- predict(fit, trainDat, type = "terminalNodes")$predictions
-  testDatNodes <- predict(fit, testDat, type = "terminalNodes")$predictions
-  predSV <- sapply(1:nrow(testDat), function(i) {
-    wij <- rowSums(wbij * (testDatNodes[rep(i, nrow(trainDatNodes)),] == trainDatNodes))
-    w1 <- sapply(Time, function(x) sum(wij * (Time >= x)))
-    exp(-sapply(Time, function(x)
-      sum(Status * wij * (Time <= x) / w1, na.rm = TRUE)))
-  })
-  apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
-}
-```
-```{R}	
 predS <- getSurv(fit, dat, dat0)
 head(predS, 3)
 ```
@@ -156,23 +66,6 @@ The `getTrueSurv3A()` function from `codes/3A.R` compute the true landmark proba
 Monte Carlo method for this scenario.
 
 ```{R}
-getTrueSurv3A <- function(dat) {
-  trSurv <- list()
-  for (i in 1:nrow(dat)) {
-    n2 <- 1e5
-    a0 <- as.numeric(dat[i, grep("a", names(dat))])[1:3]
-    W0 <- Wt(dat$D[i], a0)
-    Z0 <- as.numeric(dat[i, grep("Z", names(dat))])[1:3]    
-    t1 <- as.numeric(dat$D[i])
-    g <- rgamma(n2, 2, 2)
-    pb2 <- 1 / (1 + 1 / exp(sum(W0) + sum(Z0) + g))
-    pi2 <- rbinom(n2, 1, pb2)
-    t22 <- exp(-5 + sum(W0) + sum(Z0^2) + sum(W0 * Z0) + log(1 + t1) + g + rnorm(n2))
-    t22 <- sort(t22[pi2 > 0])
-    trSurv[[i]] <- stepfun(t22, c(1, 1 - ecdf(t22)(t22)))
-  }
-  trSurv
-}
 trueS <- getTrueSurv3A(dat0)
 ```
 
@@ -191,24 +84,10 @@ mean(sapply(1:nrow(dat0), function(i) (predS[[i]](t0) - trueS[[i]](t0))^2))
 
 In addition, the concordance measure, which is equivalent to the area under the ROC curve,
 can also be used to evaluate the model performance. 
-The following implementation can be used to compute the concordance at time `tt`. 
-```{R}
-getCON <- function(tt, si, sc, df0) {
-  c1 <- outer(df0$status, rep(1, length(df0$status)))
-  c2 <- outer(df0$Time <= tt, df0$Time > tt)
-  l <- length(si)
-  stmp <- sapply(1:l, function(x) si[[x]](tt))
-  c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
-  c4 <- outer(sc(df0$Time + df0$D), sc(df0$Time + tt))
-  c4 <- ifelse(c4 < 1e-5, NA, c4)
-  c4 <- 1
-  sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
-}
-```
 The cumulative concordance of the testing data can be computed as follows,
 with `sc` being the Kaplan-Meier estimate of the censoring distribution.
 ```{R}
-sc <- with(survfit(Surv(Time, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
+sc <- with(survfit(Surv(Time + D, 1 - status) ~ 1, data = dat), stepfun(time, c(1, surv)))
 mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 ```
 
@@ -218,43 +97,22 @@ The permutation variable importance of a predictor is computed as the average de
 model accuracy on the out-of-bag (OOB) samples when the respective feature values are randomly permuted.
 We extend this idea to study variable importance in dynamic risk prediction using censored data. 
 
-
 We first calculate the OOB cumulative concordance for prediction based on trees built without 
 the $i$th subject and when each predictor of interest is randomly permuted. 
-The following implementation gives a survival prediction without the $i$th subject.
+The OOB concordance measure is computed as follows.
 ```{R}
-getSi <- function(fit, df) {
-  df <- df[order(df$Time + df$status),]
-  tt <- sort(df$Time)
-  rownames(df) <- NULL
-  sapply(1:nrow(df), function(s) {
-    fit.tmp <- fit
-    takei <- which(unlist(lapply(fit$forest$OobSampleIDs, function(x) any(x %in% (s - 1)))))
-    fit.tmp$forest$OobSampleIDs <- fit.tmp$forest$OobSampleIDs[takei]
-    fit.tmp$forest$num.trees <- fit.tmp$num.trees <- length(takei)
-    fit.tmp$forest$child.nodeIDs <- fit.tmp$forest$child.nodeIDs[takei]
-    fit.tmp$forest$split.values <- fit.tmp$forest$split.values[takei]
-    fit.tmp$forest$SampleIDs <- fit.tmp$forest$SampleIDs[takei]
-    fit.tmp$forest$chf <- fit.tmp$forest$chf[takei]
-    fit.tmp$forest$split.varIDs <- fit.tmp$forest$split.varIDs[takei]
-    getSurv(fit.tmp, df, df[s,])
-  })
-}
+con0 <- mean(sapply(t0, getCON2, getSi(fit, dat), sc, dat), na.rm = T)
 ```
-The OOB concordance measure is then computed as follows. 
-```{R}
-con0 <- mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
-```
-The following generates 50 permutations for each predictor $Z_1, \ldots, Z_{10}, W_1(U), \ldots, W_{10}(U)$ 
+The following generates 50 permutations for each predictor
 and compute the corresponding OOB cumulative concordance.
 ```{R}
-vnames <- setdiff(names(dat), c("Time", "status", "D"))
-B <- 50
+vnames <- c(paste("Z", 1:10, sep = "."), paste0("W.", 1:10, "."))
+B <- 100
 ```
 
 ```{R, cache = TRUE, message = FALSE}
-set.seed(0)
 library(mcreplicate)
+set.seed(0)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat
@@ -266,7 +124,7 @@ vimps <- sapply(1:length(vnames), function(i)
       dat2[toPerm, permID] <- dat2[sample(which(toPerm)), permID]
     }
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+    mean(sapply(t0, getCON2, f, sc, dat2), na.rm = T)
   }))
 ```
 Define the variable importance as the average difference in OOB concordances over all permutations.
@@ -275,10 +133,11 @@ The following plots the variable importance sorts by the median.
 library(dplyr)
 library(forcats)
 library(ggplot2)
-dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps0))
+dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
-  ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
+  ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
 ```
+
 
 ## Reference 
 

@@ -9,7 +9,7 @@ library(ranger)
 library(survival)
 
 ## Generate training data from scenario 3C
-set.seed(1); dat <- simDat3B(n = 400, cen = .2)
+set.seed(0); dat <- simDat3B(n = 400, cen = .2)
 tmp <- dat[,colSums(is.na(dat)) > 0]
 tmp[is.na(tmp)] <- 1e5
 dat[is.na(dat)] <- -1e5
@@ -45,11 +45,14 @@ sc <- with(survfit(Surv(Time + D, 1 - status) ~ 1, data = dat, subset = Time < 1
 mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 
 ## Intergrated CON for the training data
-(con0 <- mean(sapply(t0, getCON, getSurv(fit, dat, dat), sc, dat), na.rm = T))
+f <- getSurv(fit, dat, dat)
+(con0 <- mean(sapply(t0, getCON, f, sc, dat), na.rm = T))
+f <- getSi(fit, dat)
+(con0 <- mean(sapply(t0, getCON, f, sc, dat), na.rm = T))
 
 vnames <- c(paste("Z", 1:10, sep = "."), paste0("W.", 1:10, "."))
 vnames <- paste("Z", 1:10, sep = ".")
-B <- 100
+B <- 5
 
 ## Variable importance 
 set.seed(0)
@@ -57,25 +60,37 @@ library(mcreplicate)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat
-    permID <- grep(vnames[i], names(dat2))
-    toPerm <- dat2[,permID[1]] > -1e5
-    dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
+    if (substr(vnames[i], 1, 1) == "Z")
+      dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    else {
+      permID <- grep(vnames[i], names(dat2))
+      toPerm <- dat2[,permID[1]] > -1e5
+      dat2[toPerm, permID] <- dat2[sample(which(toPerm)), permID]
+    }
     f <- getSi(fit, dat2)
     mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
-  }))
+}))
 
 ## Variable importance plot
 library(dplyr)
 library(forcats)
 library(ggplot2)
+
 dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
 
 
+dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps))
+dd %>% mutate(vars = fct_reorder(vars, vimp)) %>% 
+  ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
+
 
 vnames <- paste("Z", 1:10, sep = ".")
 B <- 15
+
+f <- getSi(fit, dat)
+(con0 <- mean(sapply(t0, getCON2, f, sc, dat), na.rm = T))
 
 ## Variable importance for Z
 set.seed(0)
@@ -87,7 +102,7 @@ vimps0 <- sapply(1:length(vnames), function(i)
     ## toPerm <- dat2[,permID[1]] > -1e5
     ## dat2[toPerm, permID] <- dat2[sample(which(toPerm)),permID]
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON, f, sc, dat2), na.rm = T)
+    mean(sapply(t0, getCON2, f, sc, dat2), na.rm = T)
   }))
 
 ## boxplot
@@ -96,10 +111,14 @@ dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>%
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + coord_flip()
 
 ## barplot
-con0 <- mean(sapply(t0, getCON, getSi(fit, dat), sc, dat), na.rm = T)
+con0 <- mean(sapply(t0, getCON2, getSi(fit, dat), sc, dat), na.rm = T)
 dd <- data.frame(vars = vnames, vimp = con0 - colMeans(vimps0))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
   ggplot(aes(x = vars, y = vimp)) + geom_bar(stat = "identity") + coord_flip()
 
 
 
+f <- getSi(fit, dat)
+
+sc <- with(survfit(Surv(runif(1e5, 0, 5), rep(1, 1e5)) ~ 1), stepfun(time, c(1, surv)))
+(con0 <- mean(sapply(t0, getCON, f, sc, dat), na.rm = T))

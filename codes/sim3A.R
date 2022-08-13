@@ -43,6 +43,13 @@ simDat3A <- function(n, cen, test = FALSE) {
   dat$Time <- dat$Time - dat$D
   dat <- dat[order(dat$Time),]
   rownames(dat) <- NULL
+  ## Prepare data
+  tmp <- dat[,colSums(is.na(dat)) > 0]
+  tmp[is.na(tmp)] <- 1e5
+  dat[is.na(dat)] <- -1e5
+  dat <- data.frame(dat, tmp)
+  names(dat)[grep("W", names(dat))] <- 
+    paste("W", rep(1:10, 10), rep(1:5, each = 10), rep(1:2, each = 50), sep = ".")
   return(dat)
 }
 
