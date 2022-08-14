@@ -1,19 +1,19 @@
 ## #####################################################################
-## R codes used in ../Examples/sim3C.Rmd
+## R codes used in ../Examples/sim3A.Rmd
 ## #####################################################################
 
-source("../codes/sim3C.R")
-set.seed(1); dat <- simDat3C(n = 400, cen = .2)
+source("../codes/sim3A.R")
+set.seed(1); dat <- simDat3A(n = 400, cen = .2)
 
 library(survival)
 library(ranger)
 (fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))
 
 source("../codes/ranger-addon.R")
-dat0 <- simDat3C(500, 0)
+dat0 <- simDat3A(500, 0, T)
 predS <- getSurv(fit, dat, dat0)
 head(predS, 3)
-trueS <- getTrueSurv3C(dat0)
+trueS <- getTrueSurv3A(dat0)
 
 t0 <- seq(0, quantile(dat0$Time[dat0$status > 0], .9), .01)
 ## Intergrated absolute error
@@ -26,16 +26,24 @@ sc <- with(survfit(Surv(Time + D, 1 - status) ~ 1, data = dat),
 mean(sapply(t0, getCON, predS, sc, dat0), na.rm = TRUE)
 
 con0 <- mean(sapply(t0, getCON2, getSi(fit, dat), sc, dat), na.rm = T)
-vnames <- setdiff(names(dat), c("Time", "status", "D"))
+vnames <- c(paste("Z", 1:10, sep = "."), paste0("W.", 1:10, "."))
 B <- 100
+
 library(mcreplicate)
-set.seed(1)
+set.seed(0)
 vimps <- sapply(1:length(vnames), function(i) 
   mc_replicate(B, {
     dat2 <- dat
-    dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    if (substr(vnames[i], 1, 1) == "Z")
+      dat2[,vnames[i]] <- sample(dat2[,vnames[i]])
+    else {
+      permID <- grep(vnames[i], names(dat2))
+      toPerm <- dat2[,permID[1]] > -1e5
+      dat2[toPerm, permID] <- dat2[sample(which(toPerm)), permID]
+    }
     f <- getSi(fit, dat2)
-    mean(sapply(t0, getCON2, f, sc, dat2), na.rm = T)}))
+    mean(sapply(t0, getCON2, f, sc, dat2), na.rm = T)
+  }))
 
 library(dplyr)
 library(forcats)
