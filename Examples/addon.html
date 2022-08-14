@@ -11,7 +11,7 @@
 
 
 
-<title>Generate simulated data</title>
+<title>Add-on functions for ensemble procedures</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -361,12 +361,12 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">Generate simulated data</h1>
+<h1 class="title toc-ignore">Add-on functions for ensemble procedures</h1>
 
 </div>
 
 
-<p>This vignette explains the functions in <code>../codes/ranger-addon.R</code>, which contains <code>R</code> functions that applies the proposed ensemble procedure to <code>ranger</code> objects (Wright and Ziegler, 2017).</p>
+<p>This vignette explains the functions in <code>../codes/ranger-addon.R</code>, which contains <code>R</code> functions that applies the proposed ensemble procedure to <code>ranger</code> objects created by the <code>ranger()</code> function from the <code>ranger</code> package (Wright and Ziegler, 2017). These functions can be loaded with <code>source()</code>.</p>
 <pre class="r"><code>&gt; source(&quot;../codes/ranger-addon.R&quot;)</code></pre>
 <div id="predicted-survival-using-ensemble-method" class="section level3">
 <h3>Predicted survival using ensemble method</h3>
@@ -380,11 +380,11 @@ NULL</code></pre>
 <li><code>trainDat</code> is a data frame indicating the training data used to construct the <code>ranger</code> object in <code>fit</code>.</li>
 <li><code>testDat</code> is a data frame indicating the testing data, which we want to obtain the predicted survival function for.</li>
 </ul>
-<p>The <code>getSurv()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the landmark probability for the <span class="math inline">\(i\)</span>th subject from the testing data.</p>
+<p>The <code>getSurv()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list is the estimated survival function for the <span class="math inline">\(i\)</span>th subject from <code>testDat</code>.</p>
 </div>
 <div id="concordance-measure" class="section level3">
 <h3>Concordance measure</h3>
-<p>The concordance measure is equivalent to the area under the ROC curve and is useful for evaluating model performances. The specified form of the concordance measure is provided in Sun et al. (2022). In here, we considered two versions of the concordance measures; <code>getCON()</code> implements the concordance measure definded in Equation 6 of Sun et al. (2022) and <code>getCON2()</code> implements a weighted concordance measure that assigns equal weights to all time points described at the end of Section 4 of Sun et al. (2022). The weighted concordance measure has the potential to avoid unstable estimation for very small or large time points and is used in variable importance.</p>
+<p>The concordance measure is equivalent to the area under the ROC curve and is useful for evaluating model performances. The specified form of the concordance measure is provided in Sun et al. (2022). In here, we considered two versions of the concordance measures; <code>getCON()</code> implements the concordance measure definded in Equation 6 in Sun et al. (2022) and <code>getCON2()</code> implements a weighted concordance measure that assigns equal weights to all time points described at the end of Section 4 in Sun et al. (2022). The weighted concordance measure has the potential to avoid unstable estimation for very small or large time points and is used in variable importance.</p>
 <p>These concordance functions take on four arguments.</p>
 <pre class="r"><code>&gt; args(getCON)</code></pre>
 <pre><code>function (tt, si, sc, dat) 
@@ -392,11 +392,12 @@ NULL</code></pre>
 <pre class="r"><code>&gt; args(getCON2)</code></pre>
 <pre><code>function (tt, si, sc, dat) 
 NULL</code></pre>
+<p>The four arguments are described below.</p>
 <ul>
 <li><code>tt</code> is a numerical value indicate the time point the concordance measure is evaluated.</li>
 <li><code>si</code> is a list of predicted survival function prepared by the <code>getSurv()</code> function.</li>
-<li><code>sc</code> is a step function that presents an estimate of the censoring time survival function.</li>
-<li><code>dat</code> is a data frame containing time and censoring indicator used to calculate the concordance measure.</li>
+<li><code>sc</code> is a function that presents an estimate of the censoring time survival function.</li>
+<li><code>dat</code> is a data frame containing the time and the censoring indicator used to calculate the concordance measure.</li>
 </ul>
 </div>
 <div id="out-of-bag-survival" class="section level2">
@@ -410,7 +411,7 @@ NULL</code></pre>
 <li><code>fit</code> is a <code>ranger</code> object created by the <code>ranger()</code> function from the <code>ranger</code> package.</li>
 <li><code>dat</code> is a data frame used to compute the OOB survival.</li>
 </ul>
-<p>The <code>getSi()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the landmark probability when the <span class="math inline">\(i\)</span>th subject is left out.</p>
+<p>The <code>getSi()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the estimated survival when the <span class="math inline">\(i\)</span>th subject is left out.</p>
 <div id="reference" class="section level3">
 <h3>Reference</h3>
 <ul>

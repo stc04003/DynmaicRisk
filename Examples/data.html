@@ -11,7 +11,7 @@
 
 
 
-<title>Generating simulated data</title>
+<title>Add-on functions to set up simulation</title>
 
 <script>// Pandoc 2.9 adds attributes on both header and div. We remove the former (to
 // be compatible with the behavior of Pandoc < 2.8).
@@ -361,7 +361,7 @@ pre code {
 
 
 
-<h1 class="title toc-ignore">Generating simulated data</h1>
+<h1 class="title toc-ignore">Add-on functions to set up simulation</h1>
 
 </div>
 
@@ -371,22 +371,22 @@ pre code {
 <h3>Simulation settings</h3>
 <p>The proposed dynamic risk prediction using survival tree ensembles is illustrated with simulated data, wherein the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is the event of interest. Define the time-independent predictors <span class="math inline">\({\boldsymbol Z}= (Z_1, \ldots, Z_{10})\)</span> as a multivariate normal random variable with <span class="math inline">\(\mbox{E}(Z_i)=1\)</span>, <span class="math inline">\(\mbox{Var}(Z_i) = 1\)</span>, and <span class="math inline">\(\mbox{Cov}(Z_i, Z_j) = 0\)</span>, for <span class="math inline">\(i, j = 1, \ldots, 10\)</span>. We generate the time to the first event, denoted by <span class="math inline">\(D\)</span>, from a uniform distribution on <span class="math inline">\([0, 5]\)</span>. Define the disease indicator, <span class="math inline">\(\Pi\)</span>, where <span class="math inline">\(\Pi = 1\)</span> indicates the subject moves from the healthy state to the disease state at time <span class="math inline">\(D\)</span>, and <span class="math inline">\(\Pi= 0\)</span> indicates the subject moves from the healthy state to death at time <span class="math inline">\(D\)</span>. The disease indicator was obtained via a logistic regression model, <span class="math display">\[\begin{equation}
 \mbox{logit} \left[P\{\Pi=1\mid {\boldsymbol Z}, {\boldsymbol W}(D)\}\right] = \sum_{j = 1}^3 W_i(D) + \sum_{j=1}^3Z_j + \gamma,
-\end{equation}\]</span> where <span class="math inline">\(\gamma\)</span> is a frailty variable following a gamma distribution with mean 1 and variance 0.5, <span class="math inline">\({\boldsymbol W}(t) = (W_1(t), \ldots, W_{10}(t))\)</span> is generated from <span class="math inline">\(W_j(t) = a_j \{1 - \exp(-0.04t^2)\}\)</span>, and <span class="math inline">\(a_j\)</span> follows a uniform distribution on <span class="math inline">\([-1, 1]\)</span> for <span class="math inline">\(j = 1,\ldots,10\)</span>. Given a subject had developed the disease at time <span class="math inline">\(D\)</span> , i.e., <span class="math inline">\(\Pi = 1\)</span>, the residual survival time, <span class="math inline">\(R\)</span> , is then generated from the following model: <span class="math display">\[\begin{equation}
+\end{equation}\]</span> where <span class="math inline">\(\gamma\)</span> is a frailty variable following a gamma distribution with mean 1 and variance 0.5, the element of <span class="math inline">\({\boldsymbol W}(t) = \{W_1(t), \ldots, W_{10}(t)\}\)</span> is generated from <span class="math inline">\(W_j(t) = a_j \{1 - \exp(-0.04t^2)\}\)</span>, and <span class="math inline">\(a_j\)</span> follows a uniform distribution on <span class="math inline">\([-1, 1]\)</span>, for <span class="math inline">\(j = 1,\ldots,10\)</span>. Given a subject had developed the disease at time <span class="math inline">\(D\)</span> , i.e., <span class="math inline">\(\Pi = 1\)</span>, the residual survival time, <span class="math inline">\(R\)</span> , is then generated from the following model: <span class="math display">\[\begin{equation}
 \log R = -5 + \sum_{j = 1}^3W_j(D) + \sum_{j = 1}^3Z_j^2 + \sum_{j = 1}^3 W_j(D) Z_{j} + \log(1 + D) + \gamma + \epsilon,
-\end{equation}\]</span> where <span class="math inline">\(\epsilon\)</span> is a standard normal random variable. When <span class="math inline">\(\Pi = 1\)</span>, the time to death is <span class="math inline">\(T = D + R\)</span>, and the time to the intermediate event is <span class="math inline">\(U = D\)</span>; when <span class="math inline">\(\Pi = 0\)</span>, the time to death is <span class="math inline">\(T = D\)</span> and the intermediate event does not occur.</p>
+\end{equation}\]</span> where <span class="math inline">\(\epsilon\)</span> is a standard normal random variable. When <span class="math inline">\(\Pi = 1\)</span>, the time to death is <span class="math inline">\(T = D + R\)</span>, and the time to the intermediate event is <span class="math inline">\(U = D\)</span>; when <span class="math inline">\(\Pi = 0\)</span>, the time to death is <span class="math inline">\(T = D\)</span> and the intermediate event does not occur, i.e., <span class="math inline">\(U =\)</span> <code>NA</code>.</p>
 <p>Let <span class="math inline">\(T_L\)</span> be the landmarkd time. We consider the following three scenarios depending on how the landmark time and the longitudinal markers are observed:</p>
-<p>A. The landmark is the intermediate event, i.e., <span class="math inline">\(T_L = U\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed intermittently at <span class="math inline">\(t_k = k\)</span>, <span class="math inline">\(k = 1,\ldots,5\)</span>.</p>
-<p>B. The landmark time is fixed at <span class="math inline">\(T_L = a\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed at the intermediate event.</p>
-<p>C. The landmark is the intermediate event, i.e., <span class="math inline">\(T_L = U\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed at the intermediate event.</p>
-<p>The target probability for the three scenarios are the following.</p>
-<p>A. <span class="math inline">\(P\{T\ge U + t|T\ge U, U, W(1, U), W(2, U), W(3, U), W(4, U), W(5, U), Z\}\)</span>.</p>
-<p>B. <span class="math inline">\(P\{T-a\ge t\mid T\ge a, U ,{\boldsymbol W}(U) , {\boldsymbol Z}\}\)</span> if <span class="math inline">\(U\le a\)</span> and <span class="math inline">\(P\{T-a\ge t\mid T\ge a, U &gt; a,{\boldsymbol Z}\}\)</span> if <span class="math inline">\(U&gt;a\)</span>.</p>
-<p>C. <span class="math inline">\(P\{T\ge U + t|T\ge U, U, W(U), Z\}\)</span>.</p>
+<p><strong>Scenario A.</strong> The landmark is the intermediate event, i.e., <span class="math inline">\(T_L = U\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed intermittently at <span class="math inline">\(t_k = k\)</span>, <span class="math inline">\(k = 1,\ldots,5\)</span>.</p>
+<p><strong>Scenario B.</strong> The landmark time is fixed at <span class="math inline">\(T_L = a\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed at the intermediate event.</p>
+<p><strong>Scenario C.</strong> The landmark is the intermediate event, i.e., <span class="math inline">\(T_L = U\)</span>, and <span class="math inline">\({\boldsymbol W}(\cdot)\)</span> is observed at the intermediate event.</p>
+<p>The target probabilities for the above three scenarios are the following.</p>
+<p><strong>Scenario A.</strong> <span class="math inline">\(P\{T\ge U + t|T\ge U, U, W(1, U), W(2, U), W(3, U), W(4, U), W(5, U), Z\}\)</span>.</p>
+<p><strong>Scenario B.</strong> <span class="math inline">\(P\{T-a\ge t\mid T\ge a, U ,{\boldsymbol W}(U) , {\boldsymbol Z}\}\)</span> if <span class="math inline">\(U\le a\)</span> and <span class="math inline">\(P\{T-a\ge t\mid T\ge a, U &gt; a,{\boldsymbol Z}\}\)</span> if <span class="math inline">\(U&gt;a\)</span>.</p>
+<p><strong>Scenario C.</strong> <span class="math inline">\(P\{T\ge U + t|T\ge U, U, W(U), Z\}\)</span>.</p>
 <p>The above simulation corresponds to simulation Scenarios (III-A), (III-B), and (III-C) in Sun et al. (2022).</p>
 </div>
-<div id="implementations" class="section level3">
-<h3>Implementations</h3>
-<p>The implmentation of the above simulation scenarios is available in <code>../codes/sim3A.R</code>, <code>../codes/sim3B.R</code>, and <code>../codes/sim3C.R</code>. The <code>R</code> codes can be loaded with the following <code>source()</code> commands.</p>
+<div id="generating-simulated-data" class="section level3">
+<h3>Generating simulated data</h3>
+<p>The implementation of scenarios A, B, and C are available in <code>../codes/sim3A.R</code>, <code>../codes/sim3B.R</code>, and <code>../codes/sim3C.R</code>, respectively. The <code>R</code> codes can be loaded with the following <code>source()</code> commands.</p>
 <pre class="r"><code>&gt; source(&quot;../codes/sim3A.R&quot;)
 &gt; source(&quot;../codes/sim3B.R&quot;)
 &gt; source(&quot;../codes/sim3C.R&quot;)</code></pre>
@@ -400,11 +400,10 @@ NULL</code></pre>
 <pre class="r"><code>&gt; args(simDat3C)</code></pre>
 <pre><code>function (n, cen) 
 NULL</code></pre>
-<p>These functions share two arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively. Three levels of censoring are available; 0%, 20%, and 40%. The <code>simDat3A()</code> function takes an additional argument <code>test</code> indicates whether to include <span class="math inline">\(a\)</span> in output, which is useful for approxmating the empirical survival probability of a testing data. Simulated data can be generated by specifying <code>n</code> and <code>cen</code> but are processed differently depending on how the landmark time and the longitudinal markers are observed.</p>
-</div>
-<div id="random-landmark-time-with-longitudinal-predictors-scenario-a" class="section level3">
-<h3>Random landmark time with longitudinal predictors (Scenario A)</h3>
-<p>The simulated data can be generated as follows.</p>
+<p>These functions have two common arguments, <code>n</code> and <code>cen</code> for sample size and censoring percentage at the baseline, respectively. Three levels of censoring are currently available; 0%, 20%, and 40%. The <code>simDat3A()</code> function takes an additional argument <code>test</code> indicates whether to include <span class="math inline">\(a\)</span> in output, which is useful for approxmating the empirical survival probability of a testing data. Simulated data can be generated by specifying <code>n</code> and <code>cen</code> but are processed differently depending on how the landmark time and the longitudinal markers are observed.</p>
+<div id="random-landmark-time-with-longitudinal-predictors-scenario-a" class="section level4">
+<h4>Random landmark time with longitudinal predictors (Scenario A)</h4>
+<p>A simulated data from this scenario can be generated as follows.</p>
 <pre class="r"><code>&gt; set.seed(1); dat3A &lt;- simDat3A(n = 400, cen = .2)
 &gt; names(dat3A)</code></pre>
 <pre><code>  [1] &quot;Time&quot;     &quot;status&quot;   &quot;D&quot;        &quot;Z.1&quot;      &quot;Z.2&quot;      &quot;Z.3&quot;      &quot;Z.4&quot;      &quot;Z.5&quot;      &quot;Z.6&quot;     
@@ -434,12 +433,12 @@ NULL</code></pre>
 <li><code>status</code> is the censoring indicator; 1 if <code>Time</code> is the event of interest (death) and 0 if <code>Time</code> is censored.</li>
 <li><code>D</code> is the time from the healthy state to the diseased state. This is also the landmark time in this scenario.</li>
 <li><code>Z.1</code>…<code>Z.10</code> are the 10 baseline predictors.</li>
-<li><code>W.i.j.k</code> are the time-dependent predictors, for <span class="math inline">\(i = 1, \ldots, 10\)</span>, <span class="math inline">\(j = 1, \ldots, 5\)</span>, and <span class="math inline">\(k = 1, 2\)</span>. The variable <code>W.i.j.k</code> indicates the <span class="math inline">\(i\)</span>th time-dependent predictors at time <span class="math inline">\(T_j\)</span>, i.e., <span class="math inline">\(W_i(T_j)\)</span>. The last indicator <code>k</code> indicates the first and the second values after applying the proposed preprocessing procedure to the time-dependent predictors. Specifically, when the time-dependent predictor is observed at time <span class="math inline">\(T_j\)</span>, we split <span class="math inline">\(W_i(T_j)\)</span> by <span class="math inline">\(\{W_i(T_j), W_i(T_j)\}\)</span>. When the time-dependent predictor is not observed at time <span class="math inline">\(T_j\)</span>, <span class="math inline">\(W_i(T_j)\)</span> has a value of <code>NA</code>, and we split <span class="math inline">\(W_i(T_j)\)</span> by <span class="math inline">\(\{-M, M\}\)</span>, for some large value <span class="math inline">\(M\)</span> such as <span class="math inline">\(10^5\)</span>.</li>
+<li><code>W.i.j.k</code> are the time-dependent predictors, for <span class="math inline">\(i = 1, \ldots, 10\)</span>, <span class="math inline">\(j = 1, \ldots, 5\)</span>, and <span class="math inline">\(k = 1, 2\)</span>. The variable <code>W.i.j.k</code> indicates the <span class="math inline">\(i\)</span>th time-dependent predictors at time <span class="math inline">\(T_j\)</span>, i.e., <span class="math inline">\(W_i(T_j)\)</span>. The last index <code>k</code> indicates the first and the second values after applying the proposed preprocessing procedure to the time-dependent predictors. Specifically, when the time-dependent predictor is observed at time <span class="math inline">\(T_j\)</span>, we split <span class="math inline">\(W_i(T_j)\)</span> by <span class="math inline">\(\{W_i(T_j), W_i(T_j)\}\)</span>. When the time-dependent predictor is not observed at time <span class="math inline">\(T_j\)</span>, <span class="math inline">\(W_i(T_j)\)</span> has a value of <code>NA</code>, and we split <span class="math inline">\(W_i(T_j)\)</span> by <span class="math inline">\(\{-M, M\}\)</span>, for some large value <span class="math inline">\(M\)</span> such as <span class="math inline">\(10^5\)</span>.</li>
 </ul>
 </div>
-<div id="fixed-landmark-time-with-longitudinal-predictors-measured-at-the-intermediate-event-scenario-b" class="section level3">
-<h3>Fixed landmark time with longitudinal predictors measured at the intermediate event (Scenario B)</h3>
-<p>The simulated data can be generated as follows.</p>
+<div id="fixed-landmark-time-with-longitudinal-predictors-measured-at-the-intermediate-event-scenario-b" class="section level4">
+<h4>Fixed landmark time with longitudinal predictors measured at the intermediate event (Scenario B)</h4>
+<p>A simulated data from this scenario can be generated as follows.</p>
 <pre class="r"><code>&gt; set.seed(1); dat3B &lt;- simDat3B(n = 400, cen = .2)
 &gt; names(dat3B)</code></pre>
 <pre><code> [1] &quot;Time&quot;   &quot;status&quot; &quot;D&quot;      &quot;Z.1&quot;    &quot;Z.2&quot;    &quot;Z.3&quot;    &quot;Z.4&quot;    &quot;Z.5&quot;    &quot;Z.6&quot;    &quot;Z.7&quot;    &quot;Z.8&quot;   
@@ -459,12 +458,12 @@ NULL</code></pre>
 <li><code>status</code> is the censoring indicator; 1 if <code>Time</code> is the event of interest (death) and 0 if <code>Time</code> is censored.</li>
 <li><code>D</code> is the time from the healthy state to the diseased state. This is observed if <span class="math inline">\(D &lt; T_L = 2\)</span>, otherwise <code>D = 2</code>.</li>
 <li><code>Z.1</code>…<code>Z.10</code> are the 10 baseline predictors.</li>
-<li><code>W.i.j</code> are the time-dependent predictors, for <span class="math inline">\(i = 1, \ldots, 10\)</span>, and <span class="math inline">\(j = 1, 2\)</span>. The variable <code>W.i.j</code> indicates the <span class="math inline">\(i\)</span>th time-dependent predictors at time <span class="math inline">\(U\)</span>, i.e., <span class="math inline">\(W_i(U)\)</span>. The indicator <code>j</code> indicates the first and the second values after applying the proposed preprocessing procedure to the time-dependent predictors. Specifically, when the time-dependent predictor is observed at time <span class="math inline">\(U\)</span>, we split <span class="math inline">\(W_i(U)\)</span> by <span class="math inline">\(\{W_i(U), W_i(U)\}\)</span>. When the time-dependent predictor is not observed at time <span class="math inline">\(U\)</span>, <span class="math inline">\(W_i(U)\)</span> has a value of <code>NA</code>, and we split <span class="math inline">\(W_i(U)\)</span> by <span class="math inline">\(\{-M, M\}\)</span>, for some large value <span class="math inline">\(M\)</span> such as <span class="math inline">\(10^5\)</span>.</li>
+<li><code>W.i.j</code> are the time-dependent predictors, for <span class="math inline">\(i = 1, \ldots, 10\)</span>, and <span class="math inline">\(j = 1, 2\)</span>. The variable <code>W.i.j</code> indicates the <span class="math inline">\(i\)</span>th time-dependent predictors at time <span class="math inline">\(U\)</span>, i.e., <span class="math inline">\(W_i(U)\)</span>. The index <code>j</code> indicates the first and the second values after applying the proposed preprocessing procedure to the time-dependent predictors. Specifically, when the time-dependent predictor is observed at time <span class="math inline">\(U\)</span>, we split <span class="math inline">\(W_i(U)\)</span> by <span class="math inline">\(\{W_i(U), W_i(U)\}\)</span>. When the time-dependent predictor is not observed at time <span class="math inline">\(U\)</span>, <span class="math inline">\(W_i(U)\)</span> has a value of <code>NA</code>, and we split <span class="math inline">\(W_i(U)\)</span> by <span class="math inline">\(\{-M, M\}\)</span>, for some large value <span class="math inline">\(M\)</span> such as <span class="math inline">\(10^5\)</span>.</li>
 </ul>
 </div>
-<div id="random-landmark-time-with-longitudinal-predictors-measured-at-the-intermediate-event-scenario-c" class="section level3">
-<h3>Random landmark time with longitudinal predictors measured at the intermediate event (Scenario C)</h3>
-<p>The simulated data can be generated as follows.</p>
+<div id="random-landmark-time-with-longitudinal-predictors-measured-at-the-intermediate-event-scenario-c" class="section level4">
+<h4>Random landmark time with longitudinal predictors measured at the intermediate event (Scenario C)</h4>
+<p>A simulated data from this scenario can be generated as follows.</p>
 <pre class="r"><code>&gt; set.seed(1); dat3C &lt;- simDat3C(n = 400, cen = .2)
 &gt; names(dat3C)</code></pre>
 <pre><code> [1] &quot;Time&quot;   &quot;status&quot; &quot;D&quot;      &quot;Z.1&quot;    &quot;Z.2&quot;    &quot;Z.3&quot;    &quot;Z.4&quot;    &quot;Z.5&quot;    &quot;Z.6&quot;    &quot;Z.7&quot;    &quot;Z.8&quot;   
@@ -484,8 +483,9 @@ NULL</code></pre>
 <li><code>status</code> is the censoring indicator; 1 if <code>Time</code> is the event of interest (death) and 0 if <code>Time</code> is censored.</li>
 <li><code>D</code> is the time from the healthy state to the diseased state. This is also the landmark time in this scenario.</li>
 <li><code>Z.1</code>…<code>Z.10</code> are the 10 baseline predictors.</li>
-<li><code>W.i</code> are the time-dependent predictors observed at time <span class="math inline">\(U\)</span>, for <span class="math inline">\(i = 1, \ldots, 10\)</span>. Since the landmark time for this scenario is <span class="math inline">\(U\)</span>, <code>W.i</code> is always observed and the proposed preprocessing procedure is not applied here.</li>
+<li><code>W.i</code> are the time-dependent predictors observed at time <span class="math inline">\(U\)</span>, for <span class="math inline">\(i = 1, \ldots, 10\)</span>. Since the landmark time for this scenario is <span class="math inline">\(U\)</span>, <span class="math inline">\(W_i(U)\)</span> is always observed and the proposed preprocessing procedure is not applied here.</li>
 </ul>
+</div>
 </div>
 <div id="computing-true-probability" class="section level3">
 <h3>Computing true probability</h3>
@@ -500,7 +500,7 @@ NULL</code></pre>
 <pre class="r"><code>&gt; args(getTrueSurv3C)</code></pre>
 <pre><code>function (dat) 
 NULL</code></pre>
-<p>The <code>getTrueSurv()</code> functions take one argument and return a list, where the <span class="math inline">\(i\)</span>th member of the list gives the true landmark probability for the <span class="math inline">\(i\)</span>th subject from the testing data. This function is useful for evaluating model performance.</p>
+<p>The <code>getTrueSurv()</code> functions take only one argument <code>dat</code>, which is a data frame generated by the corresponding <code>simDat()</code> functions. The <code>getTrueSurv()</code> functions return a list, where the <span class="math inline">\(i\)</span>th member of the list gives the empirical estimation of the true probability for the the <span class="math inline">\(i\)</span>th subject from <code>dat</code>. The empirical probabilities are useful for evaluating model performance based on performance statistics such as the integrated absolute errors and the integrated mean squared errors.</p>
 </div>
 <div id="reference" class="section level3">
 <h3>Reference</h3>
