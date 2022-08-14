@@ -37,7 +37,7 @@ The `getSurv()` function takes the following three arguments.
   - `trainDat` is a data frame indicating the training data used to construct the `ranger` object in `fit`.
   - `testDat` is a data frame indicating the testing data, which we want to obtain the predicted survival function for.
   
-The `getSurv()` function returns a list, where the $i$th member of the list 
+The `getSurv()` function returns a list, whose $i$th member
 is the estimated survival function for the $i$th subject from `testDat`.
 
 ### Concordance measure

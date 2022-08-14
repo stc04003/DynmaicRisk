@@ -366,17 +366,17 @@ pre code {
 </div>
 
 
-<p>In the following example, we used the <code>ranger()</code> function implemented in <code>R</code> package <code>ranger</code> (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.</p>
+<p>In the following example, we use the <code>ranger()</code> function implemented in <code>R</code> package <code>ranger</code> (Wright and Ziegler, 2017) to construct survival trees then apply the proposed ensemble method to compute the predicted survival probabilities.</p>
 <div id="generate-simulated-data" class="section level2">
 <h2>Generate simulated data</h2>
-<p>We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is the event of interest. Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, the target landmark probability is <span class="math display">\[P(T\ge U + t|T\ge U, U, W(U), Z),\]</span> where <span class="math inline">\(T\)</span> is a continuous failure time, <span class="math inline">\(U\)</span> is the time to the intermediate event (time from the healthy state to the disease state), <span class="math inline">\(W(U)\)</span> is a <span class="math inline">\(q\)</span>-dimensional vector of time-dependent predictors measured at <span class="math inline">\(U\)</span>, and <span class="math inline">\(Z\)</span> is a <span class="math inline">\(p\)</span>-dimensional vector of baseline predictors.</p>
-<p>The following codes generate simulated data from <code>simDat3C()</code>. See vignette on [“generating simulated data”] (<a href="https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/data.html" class="uri">https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/data.html</a>) for simulation settings.</p>
+<p>We consider a scenario where the event times are generated from an irreversible multi-state model with three states: healthy, diseased, and death. We assume that all subjects started in the healthy state, disease onset is an intermediate event, and death is the event of interest. Suppose we are interested in predicting the survival probability among those who experienced an intermediate event, the target landmark probability is <span class="math display">\[P(T\ge U + t|T\ge U, U, W(U), Z),\]</span> where <span class="math inline">\(T\)</span> is a continuous failure time, <span class="math inline">\(U\)</span> is the time to the intermediate event (time from the healthy state to the disease state), <span class="math inline">\(W(U)\)</span> is a <span class="math inline">\(q\)</span>-dimensional vector of time-dependent predictors measured at <span class="math inline">\(U\)</span>, and <span class="math inline">\(Z\)</span> is a <span class="math inline">\(p\)</span>-dimensional vector of baseline predictors. In this case, the landmark time <span class="math inline">\(T_L = U\)</span>.</p>
+<p>The following codes generate simulated data from <code>simDat3C()</code>. See vignette on <a href="https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/data.html">generating simulated data</a> for the complete simulation settings and details of <code>simDat3C()</code>. The following generates a data from <code>simDat3C()</code>.</p>
 <pre class="r"><code>&gt; source(&quot;../codes/sim3C.R&quot;)
 &gt; set.seed(1); dat &lt;- simDat3C(n = 400, cen = .2)</code></pre>
 </div>
 <div id="construct-trees-with-ranger" class="section level2">
 <h2>Construct trees with <code>ranger</code></h2>
-<p>The following fits a random survival forest with <code>ranger()</code> with minimum node size 15.</p>
+<p>The following fits a random survival forest with <code>ranger()</code> with a minimum node size of 15.</p>
 <pre class="r"><code>&gt; library(survival)
 &gt; library(ranger)
 &gt; (fit &lt;- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))</code></pre>
@@ -398,7 +398,7 @@ OOB prediction error (1-C):       0.2989162 </code></pre>
 </div>
 <div id="calculate-predicted-survival-probabilities-with-the-proposed-ensemble-method" class="section level2">
 <h2>Calculate predicted survival probabilities with the proposed ensemble method</h2>
-<p>The following codes generate a testing data (<code>dat0</code>) and compute the predicted probabilities with the proposed ensemble procedure. See vignette on [“add-on functions for ensemble procedures”&quot;] (<a href="https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/addon.html" class="uri">https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/addon.html</a>) for function descriptions.</p>
+<p>The following codes generate an independent testing data (<code>dat0</code>) and compute the predicted probabilities with the proposed ensemble procedure. The testing data is generated by <code>simDat3C()</code> and the predicted survival is obtained by applying <code>getSurv()</code>. See vignette on <a href="https://htmlpreview.github.io/?https://github.com/stc04003/DynmaicRisk/blob/main/Examples/addon.html">add-on functions for ensemble procedures</a> for the functions’ descriptions.</p>
 <pre class="r"><code>&gt; source(&quot;../codes/ranger-addon.R&quot;)
 &gt; dat0 &lt;- simDat3C(500, 0)
 &gt; predS &lt;- getSurv(fit, dat, dat0)
@@ -420,11 +420,11 @@ Step function
 Call: stepfun(sort(Time), c(1, x[order(Time)]))
  x[1:239] = 0.0081491, 0.011054, 0.011668,  ..., 76.389, 113.75
 240 plateau levels =      1, 0.98232, 0.96493,  ..., 0.021301, 0.021301</code></pre>
-<p>The <code>getSurv()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the landmark probability for the <span class="math inline">\(i\)</span>th subject from the testing data.</p>
+<p>The <code>getSurv()</code> function returns a list, whose <span class="math inline">\(i\)</span>th member is the estimated survival function for the <span class="math inline">\(i\)</span>th subject from the testing data, <code>dat0</code>.</p>
 </div>
 <div id="evaluating-model-performance" class="section level2">
 <h2>Evaluating model performance</h2>
-<p>Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of the true probability is challenging. Thus, we rely on empirical method to compute the true landmark probability using Monte Carlo method for this scenario.</p>
+<p>Due to the complicated relationship between event times and longitudinal markers, deriving the closed-form expression of the true probability is challenging. The <code>getTrueSurv3C()</code> function from <code>codes/sim3C.R</code> computes the true probability using Monte Carlo method for this scenario.</p>
 <pre class="r"><code>&gt; trueS &lt;- getTrueSurv3C(dat0)</code></pre>
 <p>The <code>getTrueSurv3C()</code> function returns a list, where the <span class="math inline">\(i\)</span>th member of the list gives the true landmark probability for the <span class="math inline">\(i\)</span>th subject from the testing data. The following codes calculate the integrated mean absolute error and the integrated mean squared error to evaluate the model performance.</p>
 <pre class="r"><code>&gt; t0 &lt;- seq(0, quantile(dat0$Time[dat0$status &gt; 0], .9), .01)
