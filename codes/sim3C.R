@@ -27,6 +27,7 @@ simDat3C <- function(n, cen) {
   dat0$status <- 1 * (dat0$Time < cc)
   dat <- subset(dat0[keep,], Time >= D)
   dat$Time <- dat$Time - dat$D
+  dat <- dat[order(dat$Time),]
   rownames(dat) <- NULL
   return(dat)
 }

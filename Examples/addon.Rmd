@@ -1,0 +1,94 @@
+---
+title: "Add-on functions for ensemble procedures"
+output: html_document
+data: August 15, 2022
+---
+
+\newcommand{\bX}{{\boldsymbol X}}
+\newcommand{\bW}{{\boldsymbol W}}
+\newcommand{\bZ}{{\boldsymbol Z}}
+
+
+```{r default, include = FALSE, collapse = TRUE}
+library(knitr)
+opts_chunk$set(prompt = TRUE, comment = "")
+options(width = 110)
+```
+
+This vignette explains the functions in `../codes/ranger-addon.R`, 
+which contains `R` functions that applies the proposed ensemble procedure to `ranger` objects 
+created by the `ranger()` function from the `ranger` package (Wright and Ziegler, 2017).
+These functions can be loaded with `source()`.
+```{R}
+source("../codes/ranger-addon.R")
+```
+
+### Predicted survival using ensemble method
+
+Given a partition created by `ranger()`, 
+the proposed ensemble procedure is used to obtain survival estimate. 
+The procedure is implemented in the `getSurv()` function.
+```{R}
+args(getSurv)
+```
+The `getSurv()` function takes the following three arguments. 
+
+  - `fit` is a `ranger` object created by the `ranger()` function from the `ranger` package. 
+  - `trainDat` is a data frame indicating the training data used to construct the `ranger` object in `fit`.
+  - `testDat` is a data frame indicating the testing data, which we want to obtain the predicted survival function for.
+  
+The `getSurv()` function returns a list, whose $i$th member
+is the estimated survival function for the $i$th subject from `testDat`.
+
+### Concordance measure
+
+The concordance measure is equivalent to the area under the ROC curve and is useful for
+evaluating model performances. 
+The specified form of the concordance measure is provided in Sun et al. (2022). 
+In here, we considered two versions of the concordance measures; 
+`getCON()` implements the concordance measure definded in Equation 6 in Sun et al. (2022)
+and `getCON2()` implements a weighted concordance measure that assigns equal weights 
+to all time points described at the end of Section 4 in Sun et al. (2022).
+The weighted concordance measure has the potential to avoid unstable estimation for very small or large time points and is
+used in variable importance.
+
+These concordance functions take on four arguments. 
+
+```{R}
+args(getCON)
+args(getCON2)
+```
+
+The four arguments are described below.
+
+  - `tt` is a numerical value indicate the time point the concordance measure is evaluated.
+  - `si` is a list of predicted survival function prepared by the `getSurv()` function.
+  - `sc` is a function that presents an estimate of the censoring time survival function. 
+  - `dat` is a data frame containing the time and the censoring indicator used to calculate the concordance measure.   
+
+## Out-of-bag survival 
+
+Variable importance is a useful measure for understanding the impact of predictors in tree ensembles and can be used as a reference for variable selection. 
+In the original random forests, each tree is constructed using a bootstrap sample of the original data, and the out-of-bag (OOB) data can be used to estimate the OOB prediction performance. 
+The OOB survival can be obtained by the `getSi()` function. 
+
+```{R}
+args(getSi)
+```
+
+The two arguments are as follow.
+
+  - `fit` is a `ranger` object created by the `ranger()` function from the `ranger` package. 
+  - `dat` is a data frame used to compute the OOB survival.
+
+
+The `getSi()` function returns a list, where the $i$th member of the list gives the estimated survival
+when the $i$th subject is left out. 
+
+### Reference 
+
+- Sun, Y., Chiou, S.H., Wu, C.O., McGarry, M. and Huang, C.Y., (2022). Dynamic risk prediction using survival tree ensembles with application to Cystic Fibrosis. *Annals of Applied Statistics* (In press).
+
+- Wright, M. N. and Ziegler, A. (2017). `ranger`: A fast implementation of random forests for high dimensional
+data in `C++` and `R`. Journal of Statistical Software 77 1–17.
+

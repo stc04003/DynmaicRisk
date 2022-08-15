@@ -26,3 +26,56 @@ getSurv <- function(fit, trainDat, testDat) {
   })
   apply(predSV, 2, function(x) stepfun(sort(Time), c(1, x[order(Time)])))
 }
+
+#' Function used to compute the concordance measure at time tt
+#'
+#' @param tt is the time to evaluate the concordance measure
+#' @param si is a list of survival functions output from getSurv()
+#' @param sc is a Kaplan-Meier estimate of survival distribution of the censoring time
+#' @param dat is a data frame for testing data
+#'
+#' This return a single numerical value
+getCON <- function(tt, si, sc, dat) {
+  c1 <- outer(dat$status, rep(1, length(dat$status)))
+  c2 <- outer(dat$Time <= tt, dat$Time > tt)
+  l <- length(si)
+  stmp <- sapply(1:l, function(x) si[[x]](tt))
+  c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
+  c4 <- outer(sc(dat$Time + dat$D), sc(dat$D + tt))
+  c4 <- ifelse(c4 < 1e-5, NA, c4)
+  sum(c1 * c2 * c3 / c4, na.rm = TRUE) / sum(c1 * c2 / c4, na.rm = TRUE)
+}
+
+#' This return a single numerical value
+getCON2 <- function(tt, si, sc, dat) {
+  c1 <- outer(dat$status, rep(1, length(dat$status)))
+  c2 <- outer(dat$Time <= tt, dat$Time > tt)
+  l <- length(si)
+  stmp <- sapply(1:l, function(x) si[[x]](tt))
+  c3 <- 1 * outer(stmp, stmp, "<") + 0.5 * outer(stmp, stmp, "==")
+  c4 <- outer(sc(dat$Time + dat$D), sc(dat$D + tt))
+  c4 <- ifelse(c4 < 1e-5, NA, c4)
+  n <- nrow(dat)
+  sum(c1 * c2 * c3 / c4, na.rm = TRUE) / n / (n - 1)
+}
+
+#' Function used to compute the predicted survival without the ith subject using ensemble method
+#'
+#' @param fit is a ranger object
+#' @param dat is a data frame for the training data (the data used in creating fit)
+getSi <- function(fit, dat) {
+  tt <- sort(dat$Time)
+  rownames(dat) <- NULL
+  sapply(1:nrow(dat), function(s) {
+    fit.tmp <- fit
+    takei <- which(unlist(lapply(fit$forest$OobSampleIDs, function(x) any(x %in% (s - 1)))))
+    fit.tmp$forest$OobSampleIDs <- fit.tmp$forest$OobSampleIDs[takei]
+    fit.tmp$forest$num.trees <- fit.tmp$num.trees <- length(takei)
+    fit.tmp$forest$child.nodeIDs <- fit.tmp$forest$child.nodeIDs[takei]
+    fit.tmp$forest$split.values <- fit.tmp$forest$split.values[takei]
+    fit.tmp$forest$SampleIDs <- fit.tmp$forest$SampleIDs[takei]
+    fit.tmp$forest$chf <- fit.tmp$forest$chf[takei]
+    fit.tmp$forest$split.varIDs <- fit.tmp$forest$split.varIDs[takei]
+    getSurv(fit.tmp, dat, dat[s,])
+  })
+}
