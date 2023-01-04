@@ -7,7 +7,8 @@ set.seed(1); dat <- simDat3A(n = 400, cen = .2)
 
 library(survival)
 library(ranger)
-(fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))
+(fit <- ranger(Surv(Time, status) ~ ., data = dat,
+               keep.inbag = TRUE, min.node.size = 15))
 
 source("../codes/ranger-addon.R")
 dat0 <- simDat3A(500, 0, T)
@@ -52,3 +53,4 @@ dd <- data.frame(vars = rep(vnames, each = B), vimp = con0 - c(vimps))
 dd %>% mutate(vars = fct_reorder(vars, vimp, .fun = 'median')) %>% 
   ggplot(aes(x = vars, y = vimp)) + geom_boxplot() + 
   coord_flip() + xlab("") + ylab("")
+

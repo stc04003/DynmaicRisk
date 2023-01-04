@@ -13,9 +13,7 @@ getSurv <- function(fit, trainDat, testDat) {
   Time <- as.numeric(unlist(trainDat[resChar[1]]))
   Status <- as.numeric(unlist(trainDat[resChar[2]]))
   n <- nrow(trainDat)
-  wbij <- sapply(1:fit$forest$num.trees, function(i) {
-    out <- tabulate(1 + fit$forest$SampleIDs[[i]], nbins = n)
-    return(out) })
+  wbij <- do.call(cbind, fit$inbag.counts)
   trainDatNodes <- predict(fit, trainDat, type = "terminalNodes")$predictions
   testDatNodes <- predict(fit, testDat, type = "terminalNodes")$predictions
   predSV <- sapply(1:nrow(testDat), function(i) {
@@ -68,14 +66,13 @@ getSi <- function(fit, dat) {
   rownames(dat) <- NULL
   sapply(1:nrow(dat), function(s) {
     fit.tmp <- fit
-    takei <- which(unlist(lapply(fit$forest$OobSampleIDs, function(x) any(x %in% (s - 1)))))
-    fit.tmp$forest$OobSampleIDs <- fit.tmp$forest$OobSampleIDs[takei]
+    takei <- which(sapply(fit$inbag.counts, function(x) x[s] == 0))
     fit.tmp$forest$num.trees <- fit.tmp$num.trees <- length(takei)
     fit.tmp$forest$child.nodeIDs <- fit.tmp$forest$child.nodeIDs[takei]
     fit.tmp$forest$split.values <- fit.tmp$forest$split.values[takei]
-    fit.tmp$forest$SampleIDs <- fit.tmp$forest$SampleIDs[takei]
     fit.tmp$forest$chf <- fit.tmp$forest$chf[takei]
     fit.tmp$forest$split.varIDs <- fit.tmp$forest$split.varIDs[takei]
+    fit.tmp$inbag.counts <- fit.tmp$inbag.counts[takei]
     getSurv(fit.tmp, dat, dat[s,])
   })
 }
