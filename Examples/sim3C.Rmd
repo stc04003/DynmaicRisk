@@ -1,6 +1,6 @@
 ---
 title: "Random landmark time with longitudinal predictors measured at the intermediate event."
-data: August 15, 2022
+data: January 3, 2023
 output: html_document
 ---
 
@@ -37,7 +37,7 @@ The following fits a random survival forest with `ranger()` with a minimum node 
 ```{R}
 library(survival)
 library(ranger)
-(fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))
+(fit <- ranger(Surv(Time, status) ~ ., data = dat, keep.inbag = TRUE, min.node.size = 15))
 ```
 
 ## Calculate predicted survival probabilities with the proposed ensemble method

@@ -7,7 +7,8 @@ set.seed(1); dat <- simDat3C(n = 400, cen = .2)
 
 library(survival)
 library(ranger)
-(fit <- ranger(Surv(Time, status) ~ ., data = dat, min.node.size = 15))
+(fit <- ranger(Surv(Time, status) ~ ., data = dat,
+               keep.inbag = TRUE, min.node.size = 15))
 
 source("../codes/ranger-addon.R")
 dat0 <- simDat3C(500, 0)
